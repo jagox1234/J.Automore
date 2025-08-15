@@ -2,23 +2,33 @@
   "name": "copilot-chief-agent",
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
-    "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "jautomore",
-  "engines": { "vscode": "^1.75.0" },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished","onCommand:copilotChief.startAgent"],
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:copilotChief.startAgent"
+  ],
   "main": "./src/extension.js",
   "contributes": {
     "commands": [
-      { "command": "copilotChief.startAgent", "title": "Copilot Chief: Iniciar Agente" }
+      {
+        "command": "copilotChief.startAgent",
+        "title": "Copilot Chief: Iniciar Agente"
+      }
     ],
     "configuration": {
       "title": "Copilot Chief Agent",
       "properties": {
         "copilotChief.openaiApiKey": {
           "type": "string",
-            "default": "",
-            "description": "OpenAI API Key para ChatGPT (se recomienda usar el Secret Storage en futuras versiones)"
+          "default": "",
+          "description": "OpenAI API Key para ChatGPT (se recomienda usar el Secret Storage en futuras versiones)"
         },
         "copilotChief.model": {
           "type": "string",
