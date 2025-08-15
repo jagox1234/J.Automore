@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-// CI trigger: actualización mínima para generar nueva release automática.
+// CI trigger: noop cambio para generar nueva release automática.
 const { scanProject } = require('./projectScanner');
 const { askChatGPT } = require('./openaiClient');
 const { saveMemory, loadMemory } = require('./memoryManager');
