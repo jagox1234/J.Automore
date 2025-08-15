@@ -379,22 +379,52 @@ function downloadAndInstall(url, name, output, versionHint) {
             res.pipe(file);
             file.on('finish', () => {
                 file.close(() => {
-                    output.appendLine('[update] Instalando VSIX ' + filePath);
-                    try {
-                        // Usa CLI de VS Code. Debe existir 'code' en PATH.
-                        const cmd = process.platform.startsWith('win') ? `code --install-extension "${filePath}" --force` : `code --install-extension '${filePath}' --force`;
-                        cp.exec(cmd, (err, stdout, stderr) => {
+                    output.appendLine('[update] VSIX descargado en ' + filePath);
+                    const attempts = [];
+                    const path = require('path');
+                    const exeDir = path.dirname(process.execPath);
+                    if (process.platform.startsWith('win')) {
+                        attempts.push(`code --install-extension "${filePath}" --force`);
+                        attempts.push(`code.cmd --install-extension "${filePath}" --force`);
+                        attempts.push(`"${path.join(exeDir,'bin','code.cmd')}" --install-extension "${filePath}" --force`);
+                    } else {
+                        attempts.push(`code --install-extension '${filePath}' --force`);
+                        attempts.push(`${path.join(exeDir,'bin','code')} --install-extension '${filePath}' --force`);
+                    }
+                    let installed = false;
+                    const tryNext = () => {
+                        if (!attempts.length) {
+                            output.appendLine('[update] No se pudo instalar automáticamente via CLI. Mostrando métodos manuales.');
+                            manualFallback();
+                            return resolve();
+                        }
+                        const cmd = attempts.shift();
+                        output.appendLine('[update] Intentando instalación con: ' + cmd);
+                        cp.exec(cmd, { timeout: 20000 }, (err, stdout, stderr) => {
                             if (err) {
-                                output.appendLine('[update] error instalación: ' + (stderr||err.message));
-                            } else {
-                                output.appendLine('[update] Instalado. Reinicia la ventana para aplicar.');
-                                const verMsg = versionHint ? ' a ' + versionHint : '';
-                                vscode.window.showInformationMessage('Copilot Chief actualizado' + verMsg + '. ¿Recargar ahora?', 'Recargar ahora', 'Luego')
-                                  .then(choice => { if (choice === 'Recargar ahora') { vscode.commands.executeCommand('workbench.action.reloadWindow'); } });
+                                output.appendLine('[update] Falló comando: ' + err.message + (stderr? (' | ' + stderr):''));
+                                return tryNext();
                             }
+                            output.appendLine('[update] Instalación CLI OK. stdout: ' + (stdout||'')); installed = true;
+                            const verMsg = versionHint ? ' a ' + versionHint : '';
+                            vscode.window.showInformationMessage('Copilot Chief actualizado' + verMsg + '. ¿Recargar ahora?', 'Recargar ahora', 'Luego')
+                                .then(choice => { if (choice === 'Recargar ahora') vscode.commands.executeCommand('workbench.action.reloadWindow'); });
                             resolve();
                         });
-                    } catch(e) { output.appendLine('[update] excepción instalación: ' + e.message); resolve(); }
+                    };
+                    const manualFallback = () => {
+                        const uri = vscode.Uri.file(filePath);
+                        vscode.window.showWarningMessage('No se pudo instalar automáticamente. Abriendo VSIX para instalación manual.', 'Abrir VSIX', 'Copiar Ruta')
+                          .then(sel => {
+                              if (sel === 'Abrir VSIX') {
+                                  vscode.commands.executeCommand('vscode.open', uri);
+                              } else if (sel === 'Copiar Ruta') {
+                                  vscode.env.clipboard.writeText(filePath);
+                                  vscode.window.showInformationMessage('Ruta copiada. Usa: Extensiones > ... > Instalar desde VSIX.');
+                              }
+                          });
+                    };
+                    tryNext();
                 });
             });
         });
