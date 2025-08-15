@@ -7,15 +7,18 @@
   "engines": { "vscode": "^1.90.0" },
   "categories": ["Other"],
   "activationEvents": [
-    "onCommand:copilotBridge.start",
-    "onStartupFinished"
+    "onCommand:copilotBridge.openChatPanel",
+    "onCommand:copilotBridge.reindex",
+    "onCommand:copilotBridge.summarizeMemory",
+    "onCommand:copilotBridge.showMetrics"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
-      { "command": "copilotBridge.start", "title": "Copilot Bridge: Open Panel" },
-      { "command": "copilotBridge.setGoal", "title": "Copilot Bridge: Set Goal" },
-      { "command": "copilotBridge.toggle", "title": "Copilot Bridge: Toggle Auto Mode" }
+      { "command": "copilotBridge.openChatPanel", "title": "Copilot Bridge: Open Panel" },
+      { "command": "copilotBridge.reindex", "title": "Copilot Bridge: Reindex Project" },
+      { "command": "copilotBridge.summarizeMemory", "title": "Copilot Bridge: Summarize Memory Now" },
+      { "command": "copilotBridge.showMetrics", "title": "Copilot Bridge: Show Metrics" }
     ],
     "configuration": {
       "title": "Copilot Bridge",
@@ -40,11 +43,13 @@
     }
   },
   "scripts": {
-    "build": "esbuild src/extension.ts --bundle --platform=node --outfile=dist/extension.js",
+    "build": "esbuild src/extension.ts --bundle --platform=node --external:vscode --format=cjs --outfile=dist/extension.js",
+    "watch": "npm run build -- --watch",
     "package": "vsce package"
   },
   "devDependencies": {
     "@types/vscode": "^1.90.0",
+    "@types/node": "^20.11.30",
     "esbuild": "^0.21.0",
     "typescript": "^5.5.0",
     "vsce": "^2.15.0"

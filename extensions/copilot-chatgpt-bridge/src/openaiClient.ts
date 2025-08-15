@@ -36,6 +36,19 @@ async function ensureSummary(client: OpenAI) {
   saveMemory(rootPath, memory);
 }
 
+export async function summarizeNow(): Promise<string | null> {
+  const apiKey = getApiKey();
+  const client = new OpenAI({ apiKey });
+  if (memory.length <= 1) return null;
+  await ensureSummary(client);
+  return projectSummary || null;
+}
+
+export function getMemoryStats() {
+  const chars = memory.reduce((a, m) => a + m.content.length, 0);
+  return { messages: memory.length, chars, hasSummary: !!projectSummary };
+}
+
 export async function askChatGPT(message: string): Promise<string> {
   const apiKey = getApiKey();
   const client = new OpenAI({ apiKey });
@@ -57,3 +70,4 @@ export async function askChatGPT(message: string): Promise<string> {
 }
 
 export function getConversation() { return memory.slice(-30); }
+
