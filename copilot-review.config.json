@@ -1,0 +1,13 @@
+{
+  "model": "gpt-4o-mini",
+  "temperature": 0.2,
+  "includePatterns": ["**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx"],
+  "excludePatterns": ["node_modules/**", "dist/**", "build/**"],
+  "maxFileSizeKB": 200,
+  "useDiff": true,
+  "maxIssuesPerFile": 12,
+  "output": {
+    "json": "review.json",
+    "markdown": "review.md"
+  }
+}

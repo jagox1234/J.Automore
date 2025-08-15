@@ -21,63 +21,11 @@ jobs:
       - name: Install dependencies
         run: npm install openai@4.0.0 node-fetch@3 dotenv simple-git
 
-      - name: Run ChatGPT Copilot-Ready Review
+      - name: Run ChatGPT Copilot-Ready Review (diff JSON + markdown)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cat <<'EOF' > copilot-review.js
-          import 'dotenv/config';
-          import OpenAI from 'openai';
-          import simpleGit from 'simple-git';
-          import fs from 'fs';
-
-          const git = simpleGit();
-          const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-          async function getChangedFiles() {
-            try {
-              let diffSummary = await git.diff(['--name-only', 'HEAD~1']);
-              return diffSummary.split('\n').filter(f => f.match(/\.(js|jsx|ts|tsx)$/));
-            } catch (e) {
-              // Fallback if HEAD~1 not available (e.g., first commit in branch)
-              let status = await git.status();
-              return status.modified.filter(f => f.match(/\.(js|jsx|ts|tsx)$/));
-            }
-          }
-
-          async function reviewFile(file) {
-            const code = fs.readFileSync(file, 'utf8');
-            const prompt = `Analiza este archivo y devuelve comentarios línea por línea con sugerencias. Para cada sugerencia, incluye un PROMPT para Copilot que aplique directamente el cambio. Formato:\n\n## Comentarios\n- Línea X: descripción del problema.\n\n## Prompt Copilot\n"""\n[Prompt aquí]\n"""\n\nCódigo:\n${code}`;
-            const res = await openai.responses.create({
-              model: 'gpt-4o-mini',
-              input: prompt,
-              temperature: 0.2
-            });
-            return `## Revisión: ${file}\n${res.output_text}\n`;
-          }
-
-          async function runReview() {
-            const changedFiles = await getChangedFiles();
-            if (!changedFiles.length) {
-              fs.writeFileSync('review.md', 'No hay cambios relevantes para revisar.');
-              return;
-            }
-            let results = [];
-            for (const file of changedFiles) {
-              try {
-                results.push(await reviewFile(file));
-              } catch (err) {
-                results.push(`## Revisión: ${file}\nError al revisar: ${err.message}\n`);
-              }
-            }
-            fs.writeFileSync('review.md', results.join('\n'));
-          }
-
-          runReview().catch(e => { console.error(e); process.exit(1); });
-          EOF
-
-          node copilot-review.js
+        run: node scripts/review.mjs
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'
@@ -85,3 +33,8 @@ jobs:
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           path: review.md
+      - name: Upload JSON artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-review-json
+          path: review.json
