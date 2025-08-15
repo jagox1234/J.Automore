@@ -1,0 +1,61 @@
+name: Auto OpenAI Instructions
+
+on:
+  push:
+    branches: ["main", "master", "develop"]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci || (npm install && npm rebuild)
+
+      - name: Run bot
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node bot.js --file App.js > instructions.txt 2>&1 || echo "(bot failed)" >> instructions.txt
+          echo "INSTRUCTIONS<<EOF" >> $GITHUB_ENV
+          cat instructions.txt >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Upload artifact (instructions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: openai-instructions
+          path: instructions.txt
+
+      - name: Comment on PR
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        env:
+          INSTRUCTIONS: ${{ env.INSTRUCTIONS }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const full = process.env.INSTRUCTIONS || '(sin contenido)';
+            const body = '### 🤖 Instrucciones generadas\n\n' + full.substring(0,64000);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });

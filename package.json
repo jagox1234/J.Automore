@@ -1,0 +1,26 @@
+{
+  "name": "j.automore",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Automation script that fetches repo code and generates Copilot improvement instructions using OpenAI.",
+  "type": "module",
+  "main": "bot.js",
+  "scripts": {
+    "bot": "node bot.js"
+  },
+  "keywords": [
+    "automation",
+    "openai",
+    "copilot",
+    "github",
+    "instructions"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.0.0",
+    "simple-git": "^3.24.0"
+  }
+}
