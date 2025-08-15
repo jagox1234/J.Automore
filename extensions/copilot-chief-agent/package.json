@@ -52,6 +52,16 @@
           "type": "boolean",
           "default": true,
           "description": "Comprueba en el arranque si hay una versión nueva en GitHub Releases y ofrece actualizar"
+        },
+        "copilotChief.autoUpdateSilent": {
+          "type": "boolean",
+          "default": false,
+          "description": "Si hay nueva versión la instala sin preguntar (requiere CLI 'code' en PATH)"
+        },
+        "copilotChief.updatePollMinutes": {
+          "type": "number",
+          "default": 15,
+          "description": "Intervalo (min) para volver a comprobar releases (0 desactiva)."
         }
       }
     }

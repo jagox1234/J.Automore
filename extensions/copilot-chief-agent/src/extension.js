@@ -28,11 +28,22 @@ function activate(context) {
     // Chequeo de actualización
     const cfg = vscode.workspace.getConfiguration('copilotChief');
     if (cfg.get('autoUpdateCheck')) {
-        checkForUpdate(output, context).catch(err => output.appendLine('[update] error: ' + err.message));
+        scheduleUpdateChecks(cfg, output);
     }
 }
 
-function checkForUpdate(output, context) {
+function scheduleUpdateChecks(cfg, output) {
+    const run = () => checkForUpdate(output, { silentInstall: cfg.get('autoUpdateSilent') });
+    run(); // initial
+    const minutes = cfg.get('updatePollMinutes');
+    if (minutes > 0) {
+        const ms = Math.max(1, minutes) * 60 * 1000;
+        setInterval(run, ms);
+        output.appendLine('[update] Polling cada ' + minutes + ' min');
+    }
+}
+
+function checkForUpdate(output, opts={}) {
     return new Promise((resolve) => {
         const pkg = require('../package.json');
         const current = pkg.version;
@@ -53,13 +64,18 @@ function checkForUpdate(output, context) {
                     const tag = json.tag_name || '';
                     const latestVer = (asset && /copilot-chief-agent-(\d+\.\d+\.\d+)\.vsix/.exec(asset.name))?.[1] || tag.replace(/^.*v/, '');
                     output.appendLine(`[update] Versión local ${current} - remota ${latestVer}`);
-                    if (latestVer && isNewer(latestVer, current) && asset) {
-                        vscode.window.showInformationMessage(`Copilot Chief Agent ${latestVer} disponible. ¿Actualizar ahora?`, 'Actualizar', 'Omitir')
-                          .then(sel => {
-                            if (sel === 'Actualizar') {
-                                downloadAndInstall(asset.browser_download_url, asset.name, output).finally(resolve);
-                            } else resolve();
-                          });
+                                        if (latestVer && isNewer(latestVer, current) && asset) {
+                                                if (opts.silentInstall) {
+                                                        output.appendLine('[update] Nueva versión ' + latestVer + ' detectada. Instalación silenciosa...');
+                                                        downloadAndInstall(asset.browser_download_url, asset.name, output).finally(resolve);
+                                                } else {
+                                                        vscode.window.showInformationMessage(`Copilot Chief Agent ${latestVer} disponible. ¿Actualizar ahora?`, 'Actualizar', 'Omitir')
+                                                            .then(sel => {
+                                                                if (sel === 'Actualizar') {
+                                                                        downloadAndInstall(asset.browser_download_url, asset.name, output).finally(resolve);
+                                                                } else resolve();
+                                                            });
+                                                }
                     } else resolve();
                 } catch (e) { output.appendLine('[update] parse error ' + e.message); resolve(); }
             });
