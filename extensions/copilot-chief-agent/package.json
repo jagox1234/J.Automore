@@ -27,6 +27,10 @@
       {
         "command": "copilotChief.diagnose",
         "title": "Copilot Chief: Diagnóstico"
+      },
+      {
+        "command": "copilotChief.statusPanel",
+        "title": "Copilot Chief: Estado"
       }
     ],
     "configuration": {

@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-const { startAgent } = require('./agent');
+const { startAgent, agentState } = require('./agent');
 const https = require('https');
 const cp = require('child_process');
 
@@ -22,6 +22,7 @@ function activate(context) {
     const manualUpdate = vscode.commands.registerCommand('copilotChief.checkUpdates', () => {
         checkForUpdate(output, context);
     });
+    const statusPanel = vscode.commands.registerCommand('copilotChief.statusPanel', () => openStatusPanel(context));
     const diagnose = vscode.commands.registerCommand('copilotChief.diagnose', async () => {
         const cfg = vscode.workspace.getConfiguration('copilotChief');
         const issues = [];
@@ -40,7 +41,7 @@ function activate(context) {
             vscode.window.showErrorMessage('Problemas: ' + issues.join(' | ') + ' | ' + summary);
         }
     });
-    context.subscriptions.push(disposable, manualUpdate, diagnose, output);
+    context.subscriptions.push(disposable, manualUpdate, diagnose, statusPanel, output);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeo de actualización
@@ -48,6 +49,8 @@ function activate(context) {
     if (cfg.get('autoUpdateCheck')) {
         scheduleUpdateChecks(cfg, output);
     }
+    // Init status bar item
+    initStatusBar(context);
 }
 
 function scheduleUpdateChecks(cfg, output) {
@@ -59,6 +62,84 @@ function scheduleUpdateChecks(cfg, output) {
         setInterval(run, ms);
         output.appendLine('[update] Polling cada ' + minutes + ' min');
     }
+}
+
+function openStatusPanel(context) {
+        const panel = vscode.window.createWebviewPanel(
+                'copilotChiefStatus',
+                'Copilot Chief - Estado',
+                vscode.ViewColumn.Beside,
+                { enableScripts: true }
+        );
+        const render = () => {
+                try {
+                        const st = agentState ? agentState() : { running:false, planning:false };
+                        const color = st.running ? '#16a34a' : (st.planning ? '#f59e0b' : '#6b7280');
+                        const statusText = st.running ? 'En ejecución' : (st.planning ? 'Planificando' : 'Inactivo');
+                        const remaining = (st.total>=0 && st.remaining>=0) ? `${st.total-st.remaining}/${st.total}` : '—';
+                        panel.webview.html = `<!DOCTYPE html><html><head><meta charset='utf-8'><style>
+                        body { font-family: system-ui, sans-serif; margin:0; padding:16px; background:#1e1e1e; color:#eee; }
+                        .card { background:#252526; border:1px solid #333; border-radius:8px; padding:16px; }
+                        h1 { font-size:16px; margin:0 0 12px; }
+                        .status { display:flex; align-items:center; gap:8px; }
+                        .dot { width:12px; height:12px; border-radius:50%; background:${color}; box-shadow:0 0 6px ${color}; }
+                        .meta { margin-top:12px; font-size:12px; line-height:1.4; }
+                        button { background:#0d6efd; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; }
+                        button:hover { background:#1d78ff; }
+                        </style></head><body>
+                        <div class='card'>
+                            <h1>Estado del Agente</h1>
+                            <div class='status'><div class='dot'></div><div><strong>${statusText}</strong></div></div>
+                            <div class='meta'>
+                                Objetivo: ${st.objective ? escapeHtml(st.objective) : '<em>No iniciado</em>'}<br/>
+                                Progreso pasos: ${remaining}<br/>
+                                Planificando: ${st.planning}<br/>
+                                Ejecutando: ${st.running}
+                            </div>
+                            <div style='margin-top:14px;'>
+                                <button onclick='vscode.postMessage({ cmd: "refresh" })'>Refrescar</button>
+                            </div>
+                            <p style='margin-top:10px; font-size:11px; opacity:.7;'>Se actualiza automáticamente cada 5s.</p>
+                        </div>
+                        <script>
+                            const vscode = acquireVsCodeApi();
+                            setInterval(()=>vscode.postMessage({cmd:'refresh'}),5000);
+                            window.addEventListener('message', e => { if(e.data.html){ document.documentElement.innerHTML = e.data.html; } });
+                        </script>
+                        </body></html>`;
+                } catch (e) {
+                        panel.webview.html = '<pre>Error renderizando estado: '+e.message+'</pre>';
+                }
+        };
+        const escapeHtml = (s)=> s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+        panel.webview.onDidReceiveMessage(msg => { if (msg.cmd==='refresh') render(); });
+        render();
+}
+
+let statusBarItem;
+function initStatusBar(context){
+    if(!statusBarItem){
+        statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+        statusBarItem.command = 'copilot-chief-agent.statusPanel';
+        context.subscriptions.push(statusBarItem);
+    }
+    const refresh = () => {
+        try {
+            const st = agentState ? agentState() : { running:false, planning:false };
+            let text = '$(robot) Chief: ';
+            if(st.running) text += '$(sync~spin) Run';
+            else if(st.planning) text += 'Plan';
+            else text += 'Idle';
+            statusBarItem.text = text;
+            statusBarItem.tooltip = `Estado del Agente\nObjetivo: ${st.objective || '—'}`;
+            statusBarItem.show();
+        } catch (e) {
+            statusBarItem.text = 'Chief: Err';
+            statusBarItem.tooltip = e.message;
+        }
+    };
+    setInterval(refresh, 4000);
+    refresh();
 }
 
 function checkForUpdate(output, opts={}) {
