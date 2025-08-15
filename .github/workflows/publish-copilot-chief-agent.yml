@@ -1,4 +1,4 @@
-name: Publish Copilot Chief Agent
+name: Copilot Chief Agent CI
 
 on:
   push:
@@ -7,30 +7,81 @@ on:
       - '.github/workflows/publish-copilot-chief-agent.yml'
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      forcePublish:
-        description: 'Publicar aunque solo haya cambios menores'
-        required: false
-        default: 'false'
+
+permissions:
+  contents: write
 
 jobs:
-  build-and-package:
+  package:
+    if: ${{ !contains(github.event.head_commit.message, '[skip-agent]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install vsce
-        run: npm install -g @vscode/vsce
+      - name: Install tooling
+        run: |
+          npm install -g @vscode/vsce
+
+      - name: Get current & previous versions
+        id: meta
+        run: |
+          CURR=$(jq -r .version extensions/copilot-chief-agent/package.json)
+          echo "current=$CURR" >> $GITHUB_OUTPUT
+          PREV_FILE=$(git show HEAD^:extensions/copilot-chief-agent/package.json 2>/dev/null || echo '{}')
+          PREV=$(echo "$PREV_FILE" | jq -r '.version // ""')
+          echo "prev=$PREV" >> $GITHUB_OUTPUT
+          LAST_TAG=$(git describe --tags --abbrev=0 --match 'copilot-chief-agent-v*' 2>/dev/null || echo '')
+          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Auto bump patch if unchanged
+        id: bump
+        run: |
+          set -e
+          CURR=${{ steps.meta.outputs.current }}
+          PREV=${{ steps.meta.outputs.prev }}
+          if [ "$CURR" = "$PREV" ]; then
+            IFS='.' read -r MA MI PA <<< "$CURR"
+            PA=$((PA+1))
+            NEW="$MA.$MI.$PA"
+            jq ".version=\"$NEW\"" extensions/copilot-chief-agent/package.json > tmp.$$ && mv tmp.$$ extensions/copilot-chief-agent/package.json
+            echo "version=$NEW" >> $GITHUB_OUTPUT
+            echo "Bumped version to $NEW"
+            git config user.name 'agent-bot'
+            git config user.email 'agent-bot@users.noreply.github.com'
+            git add extensions/copilot-chief-agent/package.json
+            git commit -m "chore(agent): bump version to $NEW [skip-agent]" || echo 'No commit'
+            git push || echo 'Push skipped'
+          else
+            echo "version=$CURR" >> $GITHUB_OUTPUT
+            echo "No bump needed ($CURR != $PREV)"
+          fi
 
       - name: Install dependencies (extension)
         working-directory: extensions/copilot-chief-agent
         run: npm install --no-audit --no-fund || true
+
+      - name: Generate changelog section
+        id: changelog
+        run: |
+          NEW_VER=${{ steps.bump.outputs.version || steps.meta.outputs.current }}
+          LAST_TAG=${{ steps.meta.outputs.last_tag }}
+          RANGE=""
+          if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..HEAD"; fi
+          LOG=$(git log $RANGE --pretty=format:'* %s (%h)' -- extensions/copilot-chief-agent || true)
+          [ -z "$LOG" ] && LOG='* Cambios menores internos'
+          echo "notes=## v$NEW_VER - $(date +%Y-%m-%d)%0A$LOG" >> $GITHUB_OUTPUT
+          printf "## v%s - %s\n%s\n\n" "$NEW_VER" "$(date +%Y-%m-%d)" "$LOG" >> extensions/copilot-chief-agent/CHANGELOG.md
+          git add extensions/copilot-chief-agent/CHANGELOG.md || true
+          git commit -m "docs(agent): update changelog v$NEW_VER [skip-agent]" || echo 'No changelog commit'
+          git push || echo 'Skip push'
 
       - name: Package VSIX
         working-directory: extensions/copilot-chief-agent
@@ -42,20 +93,18 @@ jobs:
           name: copilot-chief-agent-vsix
           path: extensions/copilot-chief-agent/*.vsix
 
-      - name: Publish to Marketplace (if token present)
-        if: env.VSCE_PAT != ''
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT || '' }}
-        working-directory: extensions/copilot-chief-agent
+      - name: Create tag (if not exists)
         run: |
-          echo "Intentando publicar versión $(jq -r .version package.json)" 
-          if [ -n "$VSCE_PAT" ]; then vsce publish -p $VSCE_PAT || echo 'Publicación fallida'; else echo 'VSCE_PAT no configurado'; fi
+          VER=${{ steps.bump.outputs.version || steps.meta.outputs.current }}
+          TAG="copilot-chief-agent-v$VER"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then echo "Tag ya existe"; else git tag "$TAG" && git push origin "$TAG"; fi
 
-      - name: Create GitHub Release
+      - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: copilot-chief-agent-v${{ github.run_number }}
-          name: Copilot Chief Agent Build ${{ github.run_number }}
+          tag_name: copilot-chief-agent-v${{ steps.bump.outputs.version || steps.meta.outputs.current }}
+          name: Copilot Chief Agent v${{ steps.bump.outputs.version || steps.meta.outputs.current }}
+          body: ${{ steps.changelog.outputs.notes }}
           files: extensions/copilot-chief-agent/*.vsix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
