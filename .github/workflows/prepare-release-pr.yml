@@ -1,0 +1,59 @@
+name: Prepare Copilot Chief Release PR
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'extensions/copilot-chief-agent/**'
+    branches: [ main ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    if: ${{ !contains(github.event.head_commit.message, '[skip-agent]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Read current version
+        id: meta
+        run: |
+          CURR=$(jq -r .version extensions/copilot-chief-agent/package.json)
+          echo "current=$CURR" >> $GITHUB_OUTPUT
+      - name: Bump patch
+        id: bump
+        run: |
+          CURR=${{ steps.meta.outputs.current }}
+          IFS='.' read -r MA MI PA <<< "$CURR"; PA=$((PA+1)); NEW="$MA.$MI.$PA"
+          jq ".version=\"$NEW\"" extensions/copilot-chief-agent/package.json > tmp.$$ && mv tmp.$$ extensions/copilot-chief-agent/package.json
+          echo "new=$NEW" >> $GITHUB_OUTPUT
+      - name: Update CHANGELOG
+        run: |
+          NEW=${{ steps.bump.outputs.new }}
+          LOG=$(git log -n 20 --pretty=format:'* %s (%h)' -- extensions/copilot-chief-agent | head -n 20)
+          [ -z "$LOG" ] && LOG='* Cambios menores'
+          printf "## v%s - %s\n%s\n\n" "$NEW" "$(date +%Y-%m-%d)" "$LOG" >> extensions/copilot-chief-agent/CHANGELOG.md
+      - name: Create branch and commit
+        run: |
+          NEW=${{ steps.bump.outputs.new }}
+          BR="release/agent-v$NEW"
+          git config user.name 'agent-bot'
+          git config user.email 'agent-bot@users.noreply.github.com'
+          git checkout -b "$BR"
+          git add extensions/copilot-chief-agent/package.json extensions/copilot-chief-agent/CHANGELOG.md
+          git commit -m "chore(agent): prepare release v$NEW"
+          git push origin "$BR"
+          echo "branch=$BR" >> $GITHUB_OUTPUT
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          head: ${{ steps.prepare.outputs.branch || format('release/agent-v{0}', steps.bump.outputs.new) }}
+          base: main
+          title: "chore(agent): release v${{ steps.bump.outputs.new }}"
+          body: "Auto PR para publicar v${{ steps.bump.outputs.new }}"
