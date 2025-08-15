@@ -2,7 +2,7 @@
   "name": "copilot-chief-agent",
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "publisher": "jautomore",
   "engines": {
     "vscode": "^1.75.0"
@@ -31,8 +31,7 @@
       {
         "command": "copilotChief.statusPanel",
         "title": "Copilot Chief: Estado"
-      }
-      ,
+      },
       {
         "command": "copilotChief.setApiKey",
         "title": "Copilot Chief: Configurar OpenAI API Key"
