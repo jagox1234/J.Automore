@@ -2,7 +2,7 @@
   "name": "copilot-chief-agent",
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "publisher": "jautomore",
   "engines": {
     "vscode": "^1.75.0"
