@@ -758,3 +758,7 @@
 * chore(agent): auto bump version to 0.1.24 [skip-agent] (d26c1a6)
 * chore(seed): trigger release workflow inicial (6fe2244)
 
+## v0.1.25 - 2025-08-15
+* chore(agent): auto bump version to 0.1.25 [skip-agent] (e0a9e83)
+* chore(ci): trigger release test (3bf8ebb)
+
