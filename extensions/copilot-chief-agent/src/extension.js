@@ -1,11 +1,13 @@
 const vscode = require('vscode');
 const { startAgent, agentState } = require('./agent');
+const apiKeyStore = require('./apiKeyStore');
 const https = require('https');
 const cp = require('child_process');
 
 function activate(context) {
     const output = vscode.window.createOutputChannel('Copilot Chief');
     output.appendLine('[activate] Iniciando extensión Copilot Chief');
+    apiKeyStore.init(context);
     const disposable = vscode.commands.registerCommand('copilotChief.startAgent', async () => {
         output.appendLine('[command] startAgent invoked');
         const objective = await vscode.window.showInputBox({
@@ -25,6 +27,21 @@ function activate(context) {
         checkForUpdate(output, context);
     });
     const statusPanel = vscode.commands.registerCommand('copilotChief.statusPanel', () => openStatusPanel(context));
+    const setKeyCmd = vscode.commands.registerCommand('copilotChief.setApiKey', async () => {
+        const existing = await apiKeyStore.getApiKey();
+        const val = await vscode.window.showInputBox({
+            prompt: 'Introduce tu OpenAI API Key',
+            placeHolder: 'sk-...',
+            password: true,
+            value: existing || ''
+        });
+        if (val) {
+            await apiKeyStore.setApiKey(val);
+            vscode.window.showInformationMessage('API Key guardada de forma segura (Secret Storage).');
+        } else {
+            vscode.window.showWarningMessage('No se guardó ninguna clave.');
+        }
+    });
     const diagnose = vscode.commands.registerCommand('copilotChief.diagnose', async () => {
         const cfg = vscode.workspace.getConfiguration('copilotChief');
         const issues = [];
@@ -43,7 +60,7 @@ function activate(context) {
             vscode.window.showErrorMessage('Problemas: ' + issues.join(' | ') + ' | ' + summary);
         }
     });
-    context.subscriptions.push(disposable, manualUpdate, diagnose, statusPanel, output);
+    context.subscriptions.push(disposable, manualUpdate, diagnose, statusPanel, setKeyCmd, output);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeo de actualización

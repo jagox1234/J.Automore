@@ -1,4 +1,5 @@
 const vscode = require('vscode');
+const { getApiKey } = require('./apiKeyStore');
 const globalAny = global;
 if (typeof globalAny.fetch !== 'function') {
   // Lazy load node-fetch if not present (when running in extension host without built-in fetch)
@@ -10,7 +11,7 @@ if (typeof globalAny.fetch !== 'function') {
  */
 async function askChatGPT(prompt) {
   const config = vscode.workspace.getConfiguration('copilotChief');
-  const key = process.env.OPENAI_API_KEY || config.get('openaiApiKey');
+  const key = await getApiKey();
   if (!key) {
     vscode.window.showWarningMessage('OpenAI API key no encontrada (OPENAI_API_KEY env o copilotChief.openaiApiKey).');
     return '';

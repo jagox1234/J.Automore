@@ -32,6 +32,11 @@
         "command": "copilotChief.statusPanel",
         "title": "Copilot Chief: Estado"
       }
+      ,
+      {
+        "command": "copilotChief.setApiKey",
+        "title": "Copilot Chief: Configurar OpenAI API Key"
+      }
     ],
     "configuration": {
       "title": "Copilot Chief Agent",
