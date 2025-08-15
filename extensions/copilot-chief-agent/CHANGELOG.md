@@ -766,3 +766,6 @@
 * chore(agent): auto bump version to 0.1.26 [skip-agent] (5c9436a)
 * chore(ci): track extension package-lock for dependency caching (6ab0182)
 
+## v0.1.27 - 2025-08-15
+* chore(agent): auto bump version to 0.1.27 [skip-agent] (de17911)
+
