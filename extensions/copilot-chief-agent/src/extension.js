@@ -22,7 +22,25 @@ function activate(context) {
     const manualUpdate = vscode.commands.registerCommand('copilotChief.checkUpdates', () => {
         checkForUpdate(output, context);
     });
-    context.subscriptions.push(disposable, manualUpdate, output);
+    const diagnose = vscode.commands.registerCommand('copilotChief.diagnose', async () => {
+        const cfg = vscode.workspace.getConfiguration('copilotChief');
+        const issues = [];
+        if (!process.env.OPENAI_API_KEY && !cfg.get('openaiApiKey')) issues.push('Falta OPENAI_API_KEY (env o setting).');
+        if (!vscode.workspace.workspaceFolders) issues.push('No hay carpeta abierta.');
+        // Check code CLI
+        await new Promise(r => {
+            cp.exec('code --version', (err) => { if (err) issues.push('CLI code no disponible en PATH (no habrá auto update silent).'); r(); });
+        });
+        // Version info
+        const pkg = require('../package.json');
+        const summary = `Versión local: ${pkg.version}`;
+        if (issues.length === 0) {
+            vscode.window.showInformationMessage('Diagnóstico OK. ' + summary);
+        } else {
+            vscode.window.showErrorMessage('Problemas: ' + issues.join(' | ') + ' | ' + summary);
+        }
+    });
+    context.subscriptions.push(disposable, manualUpdate, diagnose, output);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeo de actualización
