@@ -35,6 +35,22 @@ function activate(context) {
         checkForUpdate(output, context);
     });
     const statusPanel = vscode.commands.registerCommand('copilotChief.statusPanel', () => openStatusPanel(context));
+    const testKeyCmd = vscode.commands.registerCommand('copilotChief.testApiKey', async () => {
+        const k = await apiKeyStore.getApiKey();
+        if(!k){ vscode.window.showWarningMessage('No hay API Key configurada'); return; }
+        vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Probando clave OpenAI...' }, () => new Promise(res => {
+            const https = require('https');
+            const req = https.request({ hostname:'api.openai.com', path:'/v1/models', method:'GET', headers:{ Authorization:'Bearer '+k, 'User-Agent':'copilot-chief-agent' }}, r => {
+                if(r.statusCode===200) vscode.window.showInformationMessage('Clave válida.');
+                else if(r.statusCode===401) vscode.window.showErrorMessage('Clave inválida (401).');
+                else vscode.window.showErrorMessage('HTTP '+r.statusCode);
+                res();
+            });
+            req.on('error', e=>{ vscode.window.showErrorMessage('Error: '+e.message); res(); });
+            req.setTimeout(6000, ()=>{ req.destroy(); vscode.window.showErrorMessage('Timeout probando clave'); res(); });
+            req.end();
+        }));
+    });
     const setKeyCmd = vscode.commands.registerCommand('copilotChief.setApiKey', async () => {
         const existing = await apiKeyStore.getApiKey();
         const val = await vscode.window.showInputBox({
@@ -68,7 +84,7 @@ function activate(context) {
             vscode.window.showErrorMessage('Problemas: ' + issues.join(' | ') + ' | ' + summary);
         }
     });
-    context.subscriptions.push(disposable, manualUpdate, diagnose, statusPanel, setKeyCmd, output);
+    context.subscriptions.push(disposable, manualUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, output);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeo de actualización
@@ -134,17 +150,26 @@ function openStatusPanel(context) {
                                 <button onclick='vscode.postMessage({ cmd: "refresh" })'>Refrescar</button>
                                 <button onclick='vscode.postMessage({ cmd: "openKeyPalette" })'>Cambiar API Key (InputBox)</button>
                             </div>
-                            <div class='apikey'>
-                                <h2>OpenAI API Key</h2>
-                                <input id='ak' type='password' placeholder='sk-...' />
-                                <div style='margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;'>
-                                    <button onclick='saveKey()'>Guardar</button>
-                                    <button onclick='toggle()'>Mostrar/Ocultar</button>
-                                    <button onclick='testKey()'>Probar</button>
-                                </div>
-                                <div id='testResult' style='margin-top:6px; font-size:11px;'></div>
-                                <small>La clave se guarda en Secret Storage local de VS Code (no en settings ni en texto plano). Vacía el campo y guarda para eliminarla.</small>
-                            </div>
+                                                        <div class='apikey'>
+                                                                <h2>OpenAI API Key</h2>
+                                                                <div id='keyBlock'>
+                                                                    <input id='ak' type='password' placeholder='sk-...' />
+                                                                    <div style='margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;'>
+                                                                            <button onclick='saveKey()'>Guardar</button>
+                                                                            <button onclick='toggle()'>Mostrar/Ocultar</button>
+                                                                            <button onclick='testKey()'>Probar</button>
+                                                                    </div>
+                                                                    <div id='testResult' style='margin-top:6px; font-size:11px;'></div>
+                                                                    <small>La clave se guarda en Secret Storage local. Vacía el campo y guarda para eliminarla.</small>
+                                                                </div>
+                                                                <div id='keySummary' style='display:none;'>
+                                                                    <p style='font-size:12px; margin:0 0 8px;'>Clave configurada.</p>
+                                                                    <button onclick='editKey()'>Cambiar / Ver</button>
+                                                                    <button onclick='testKey()'>Probar</button>
+                                                                    <button onclick='removeKey()'>Eliminar</button>
+                                                                    <div id='testResult' style='margin-top:6px; font-size:11px;'></div>
+                                                                </div>
+                                                        </div>
                             <p style='margin-top:10px; font-size:11px; opacity:.7;'>Se actualiza automáticamente cada 5s.</p>
                         </div>
                         <script>
@@ -154,7 +179,11 @@ function openStatusPanel(context) {
                                if(e.data.html){ document.documentElement.innerHTML = e.data.html; }
                                if(e.data.apiKeyPresent !== undefined){
                                    const input = document.getElementById('ak');
-                                   if(input){ if(e.data.apiKeyPresent){ input.value = '********'; } else if(input.value === '********') { input.value=''; } }
+                                   if(e.data.apiKeyPresent){
+                                       showSummary();
+                                   } else {
+                                       showInput();
+                                   }
                                    updateKeyBadge(e.data.apiKeyPresent);
                                }
                                if(e.data.testResult){
@@ -171,6 +200,10 @@ function openStatusPanel(context) {
                                if(!i) return; i.type = i.type === 'password' ? 'text' : 'password';
                             }
                             function testKey(){ vscode.postMessage({ cmd:'testApiKey' }); }
+                            function editKey(){ showInput(); const i=document.getElementById('ak'); if(i){ i.focus(); i.select(); } }
+                            function removeKey(){ document.getElementById('ak').value=''; saveKey(); showInput(); }
+                            function showSummary(){ const kb=document.getElementById('keyBlock'); const ks=document.getElementById('keySummary'); if(kb&&ks){ kb.style.display='none'; ks.style.display='block'; }}
+                            function showInput(){ const kb=document.getElementById('keyBlock'); const ks=document.getElementById('keySummary'); if(kb&&ks){ kb.style.display='block'; ks.style.display='none'; }}
                             function updateKeyBadge(present){
                                 const b = document.getElementById('keyBadge'); if(!b) return;
                                 if(present){ b.textContent='Key OK'; b.classList.add('ok'); b.classList.remove('missing'); }

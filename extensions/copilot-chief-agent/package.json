@@ -35,6 +35,10 @@
       {
         "command": "copilotChief.setApiKey",
         "title": "Copilot Chief: Configurar OpenAI API Key"
+      },
+      {
+        "command": "copilotChief.testApiKey",
+        "title": "Copilot Chief: Probar API Key"
       }
     ],
     "configuration": {
