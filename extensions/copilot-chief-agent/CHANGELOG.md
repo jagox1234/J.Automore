@@ -769,3 +769,25 @@
 ## v0.1.27 - 2025-08-15
 * chore(agent): auto bump version to 0.1.27 [skip-agent] (de17911)
 
+## v0.1.28 - 2025-08-15
+* feat(agent): add API key input in status panel (8b235d2)
+* chore(ci): robust release creation (wait, fallback, verify) [skip-agent] (0b61259)
+* chore(ci): make AI review optional & non-blocking [skip-agent] (832487a)
+* chore(ci): replace setup-node cache with actions/cache [skip-agent] (b85ffb7)
+* chore(ci): switch to gh cli release creation [skip-agent] (4471919)
+* chore(ci): add npm cache & release verify step [skip-agent] (0225b16)
+* docs(agent): update changelog v0.1.27 [skip-agent] (9a3f471)
+* chore(agent): auto bump version to 0.1.27 [skip-agent] (de17911)
+* docs(agent): update changelog v0.1.26 [skip-agent] (ab335bc)
+* chore(agent): auto bump version to 0.1.26 [skip-agent] (5c9436a)
+* chore(ci): track extension package-lock for dependency caching (6ab0182)
+* docs(agent): update changelog v0.1.25 [skip-agent] (3016be9)
+* chore(agent): auto bump version to 0.1.25 [skip-agent] (e0a9e83)
+* chore(ci): trigger release test (3bf8ebb)
+* docs(agent): update changelog v0.1.24 [skip-agent] (fce5c58)
+* chore(agent): auto bump version to 0.1.24 [skip-agent] (d26c1a6)
+* chore(seed): trigger release workflow inicial (6fe2244)
+* docs(agent): update changelog v0.1.23 [skip-agent] (6dbe667)
+* chore(agent): auto bump version to 0.1.23 [skip-agent] (448c0ec)
+* docs(agent): update changelog v0.1.22 [skip-agent] (5e6802d)
+
