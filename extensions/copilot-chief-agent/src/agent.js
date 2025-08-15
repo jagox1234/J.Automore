@@ -1,0 +1,87 @@
+const vscode = require('vscode');
+const { scanProject } = require('./projectScanner');
+const { askChatGPT } = require('./openaiClient');
+const { saveMemory, loadMemory } = require('./memoryManager');
+const { nextStep, markStepComplete } = require('./stepManager');
+
+const vscode = require('vscode');
+const { scanProject } = require('./projectScanner');
+const { askChatGPT } = require('./openaiClient');
+const { saveMemory, loadMemory } = require('./memoryManager');
+const { nextStep, markStepComplete } = require('./stepManager');
+
+let workspaceRootPath = '';
+let projectContext = '';
+let steps = [];
+let objectiveGlobal = '';
+let activeListener = null;
+let planning = false;
+
+async function startAgent(objective) {
+  if (planning) return;
+  planning = true;
+  const workspaceFolders = vscode.workspace.workspaceFolders;
+  if (!workspaceFolders) {
+    vscode.window.showErrorMessage('No hay carpeta abierta en VS Code.');
+    planning = false;
+    return;
+  }
+  workspaceRootPath = workspaceFolders[0].uri.fsPath;
+  objectiveGlobal = objective;
+
+  vscode.window.setStatusBarMessage('Copilot Chief: Escaneando proyecto...', 3000);
+  projectContext = scanProject(workspaceRootPath);
+
+  vscode.window.setStatusBarMessage('Copilot Chief: Generando plan con OpenAI...', 4000);
+  const max = vscode.workspace.getConfiguration('copilotChief').get('maxPlanSteps') || 15;
+  const plan = await askChatGPT(`Eres un agente jefe que coordina a GitHub Copilot.\nObjetivo: ${objective}\nDevuelve una lista numerada de pasos concretos (máx ${max}) y orientada a commits atómicos.\nProyecto:\n${projectContext}`);
+  steps = plan.split(/\n+/).map(s => s.replace(/^\d+[).\-]\s*/, '').trim()).filter(Boolean).slice(0, max);
+
+  const mem = { objective, steps, completed: [], startedAt: new Date().toISOString() };
+  saveMemory(workspaceRootPath, mem);
+
+  vscode.window.showInformationMessage('Agente iniciado. Plan creado (' + steps.length + ' pasos).');
+  planning = false;
+  executeNextStep();
+}
+
+async function executeNextStep() {
+  const mem = loadMemory(workspaceRootPath);
+  const step = nextStep(steps, mem.completed || []);
+  if (!step) {
+    vscode.window.showInformationMessage('Copilot Chief: Objetivo completado.');
+    return;
+  }
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showWarningMessage('Abre un archivo para insertar instrucciones del paso: ' + step);
+    return;
+  }
+  await editor.edit(editBuilder => {
+    editBuilder.insert(editor.selection.active, `\n// Copilot Chief Paso: ${step}\n// Implementa este paso. Si necesitas aclaración, formula una pregunta.\n`);
+  });
+
+  if (activeListener) { activeListener.dispose(); }
+  activeListener = vscode.workspace.onDidChangeTextDocument(async (event) => {
+    if (event.document !== editor.document) return;
+    const change = event.contentChanges[0];
+    if (!change) return;
+    const text = change.text;
+    if (!text.trim()) return;
+
+    // Detect pregunta
+    if (/[?¿]/.test(text) || /que\s+hago|como\s+hacer/i.test(text)) {
+      const answer = await askChatGPT(`Objetivo global: ${objectiveGlobal}\nContexto:\n${projectContext}\nPregunta de Copilot o duda detectada en el código:\n${text}\nResponde de forma precisa en máximo 6 líneas y si procede da un mini ejemplo.`);
+      await editor.edit(b => b.insert(editor.selection.active, `\n// Respuesta del Agente: ${answer.replace(/\n/g, ' ')}\n`));
+      return;
+    }
+
+    // Consider code insertion as progress
+    markStepComplete(workspaceRootPath, step);
+    await editor.edit(b => b.insert(editor.selection.active, `\n// Copilot Chief: Paso marcado como completado. Avanzando...\n`));
+    activeListener.dispose();
+    executeNextStep();
+  });
+}
+
+module.exports = { startAgent };

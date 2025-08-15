@@ -1,0 +1,43 @@
+{
+  "name": "copilot-chief-agent",
+  "displayName": "Copilot Chief Agent",
+  "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
+  "version": "0.1.0",
+  "publisher": "j.automore",
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onCommand:copilotChief.startAgent"],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "copilotChief.startAgent", "title": "Copilot Chief: Iniciar Agente" }
+    ],
+    "configuration": {
+      "title": "Copilot Chief Agent",
+      "properties": {
+        "copilotChief.openaiApiKey": {
+          "type": "string",
+            "default": "",
+            "description": "OpenAI API Key para ChatGPT (se recomienda usar el Secret Storage en futuras versiones)"
+        },
+        "copilotChief.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "Modelo de OpenAI a usar"
+        },
+        "copilotChief.maxPlanSteps": {
+          "type": "number",
+          "default": 15,
+          "description": "Límite máximo de pasos generados en el plan inicial"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package || echo 'Instala vsce si falta'",
+    "lint": "echo 'add linter'"
+  },
+  "dependencies": {
+    "openai": "^4.0.0"
+  }
+}

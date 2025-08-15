@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Copilot Chief Agent</title>
+<style>
+ body { font-family: sans-serif; padding: 0.75rem; }
+ h1 { font-size: 1.1rem; }
+ .log { white-space: pre-wrap; font-size: 12px; background: #111; color: #ddd; padding: .5rem; height: 300px; overflow:auto; }
+</style>
+</head>
+<body>
+  <h1>Copilot Chief Agent</h1>
+  <p>Esta vista es placeholder. Próximas versiones mostrarán el plan y progreso.</p>
+  <div class="log" id="log"></div>
+  <script>
+    const vscode = acquireVsCodeApi();
+    window.addEventListener('message', ev => {
+      const { type, data } = ev.data;
+      if (type === 'log') {
+        const logEl = document.getElementById('log');
+        logEl.textContent += data + '\n';
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+    });
+  </script>
+</body>
+</html>
