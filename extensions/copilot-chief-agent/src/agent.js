@@ -1,5 +1,5 @@
 const vscode = require('vscode');
-// CI trigger: ajuste menor de comentario para disparar pipeline de empaquetado automático.
+// CI trigger: actualización mínima para generar nueva release automática.
 const { scanProject } = require('./projectScanner');
 const { askChatGPT } = require('./openaiClient');
 const { saveMemory, loadMemory } = require('./memoryManager');
