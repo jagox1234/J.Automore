@@ -12,6 +12,12 @@ function activate(context) {
     apiKeyStore.init(context);
     const disposable = vscode.commands.registerCommand('copilotChief.startAgent', async () => {
         output.appendLine('[command] startAgent invoked');
+        // Precheck API key
+        const storedKey = await apiKeyStore.getApiKey();
+        if (!storedKey) {
+            vscode.window.showErrorMessage('Configura tu OpenAI API Key antes de iniciar el agente.');
+            return;
+        }
         const objective = await vscode.window.showInputBox({
             prompt: 'Escribe el objetivo general para el Agente Jefe de Copilot',
             placeHolder: 'Ej: Implementar autenticación JWT con refresco de tokens'
@@ -104,6 +110,9 @@ function openStatusPanel(context) {
                         h1 { font-size:16px; margin:0 0 12px; }
                         .status { display:flex; align-items:center; gap:8px; }
                         .dot { width:12px; height:12px; border-radius:50%; background:${color}; box-shadow:0 0 6px ${color}; }
+                        .badge { display:inline-block; padding:2px 6px; font-size:10px; border-radius:4px; background:#444; margin-left:8px; }
+                        .badge.ok { background:#2563eb; }
+                        .badge.missing { background:#7f1d1d; }
                         .meta { margin-top:12px; font-size:12px; line-height:1.4; }
                         button { background:#0d6efd; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; }
                         button:hover { background:#1d78ff; }
@@ -113,7 +122,7 @@ function openStatusPanel(context) {
                         .apikey small { display:block; margin-top:6px; opacity:.6; line-height:1.3; }
                         </style></head><body>
                         <div class='card'>
-                            <h1>Estado del Agente</h1>
+                            <h1>Estado del Agente <span id='keyBadge' class='badge missing'>Key?</span></h1>
                             <div class='status'><div class='dot'></div><div><strong>${statusText}</strong></div></div>
                             <div class='meta'>
                                 Objetivo: ${st.objective ? escapeHtml(st.objective) : '<em>No iniciado</em>'}<br/>
@@ -128,10 +137,12 @@ function openStatusPanel(context) {
                             <div class='apikey'>
                                 <h2>OpenAI API Key</h2>
                                 <input id='ak' type='password' placeholder='sk-...' />
-                                <div style='margin-top:8px; display:flex; gap:8px;'>
+                                <div style='margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;'>
                                     <button onclick='saveKey()'>Guardar</button>
                                     <button onclick='toggle()'>Mostrar/Ocultar</button>
+                                    <button onclick='testKey()'>Probar</button>
                                 </div>
+                                <div id='testResult' style='margin-top:6px; font-size:11px;'></div>
                                 <small>La clave se guarda en Secret Storage local de VS Code (no en settings ni en texto plano). Vacía el campo y guarda para eliminarla.</small>
                             </div>
                             <p style='margin-top:10px; font-size:11px; opacity:.7;'>Se actualiza automáticamente cada 5s.</p>
@@ -143,7 +154,12 @@ function openStatusPanel(context) {
                                if(e.data.html){ document.documentElement.innerHTML = e.data.html; }
                                if(e.data.apiKeyPresent !== undefined){
                                    const input = document.getElementById('ak');
-                                   if(input && e.data.apiKeyPresent){ input.value = '********'; }
+                                   if(input){ if(e.data.apiKeyPresent){ input.value = '********'; } else if(input.value === '********') { input.value=''; } }
+                                   updateKeyBadge(e.data.apiKeyPresent);
+                               }
+                               if(e.data.testResult){
+                                   const el = document.getElementById('testResult');
+                                   if(el){ el.textContent = e.data.testResult.message; el.style.color = e.data.testResult.ok ? '#16a34a' : '#ef4444'; }
                                }
                             });
                             function saveKey(){
@@ -153,6 +169,12 @@ function openStatusPanel(context) {
                             function toggle(){
                                const i = document.getElementById('ak');
                                if(!i) return; i.type = i.type === 'password' ? 'text' : 'password';
+                            }
+                            function testKey(){ vscode.postMessage({ cmd:'testApiKey' }); }
+                            function updateKeyBadge(present){
+                                const b = document.getElementById('keyBadge'); if(!b) return;
+                                if(present){ b.textContent='Key OK'; b.classList.add('ok'); b.classList.remove('missing'); }
+                                else { b.textContent='Sin Key'; b.classList.add('missing'); b.classList.remove('ok'); }
                             }
                             // Pedir estado inicial clave
                             vscode.postMessage({ cmd:'checkKey' });
@@ -178,6 +200,27 @@ function openStatusPanel(context) {
                     vscode.window.showInformationMessage('API Key guardada.');
                 }
                 panel.webview.postMessage({ apiKeyPresent: !!val });
+            }
+            if (msg.cmd==='testApiKey') {
+                const k = await apiKeyStore.getApiKey();
+                if(!k){ panel.webview.postMessage({ testResult:{ ok:false, message:'No hay clave configurada.' } }); return; }
+                try {
+                    // Petición ligera a OpenAI models (HEAD no soporta; usamos GET con low timeout)
+                    const https = require('https');
+                    const req = https.request({
+                        hostname: 'api.openai.com',
+                        path: '/v1/models',
+                        method: 'GET',
+                        headers: { 'Authorization': 'Bearer ' + k, 'User-Agent':'copilot-chief-agent', 'Accept':'application/json' }
+                    }, res => {
+                        if(res.statusCode === 200){ panel.webview.postMessage({ testResult:{ ok:true, message:'Clave válida.' } }); }
+                        else if(res.statusCode === 401){ panel.webview.postMessage({ testResult:{ ok:false, message:'Unauthorized: clave inválida.' } }); }
+                        else panel.webview.postMessage({ testResult:{ ok:false, message:'HTTP '+res.statusCode } });
+                    });
+                    req.on('error', e=> panel.webview.postMessage({ testResult:{ ok:false, message:e.message } }));
+                    req.setTimeout(6000, ()=>{ req.destroy(); panel.webview.postMessage({ testResult:{ ok:false, message:'Timeout' } }); });
+                    req.end();
+                } catch(e){ panel.webview.postMessage({ testResult:{ ok:false, message:e.message } }); }
             }
             if (msg.cmd==='openKeyPalette') {
                 vscode.commands.executeCommand('copilotChief.setApiKey');
