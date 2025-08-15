@@ -1,4 +1,9 @@
 const vscode = require('vscode');
+const globalAny = global;
+if (typeof globalAny.fetch !== 'function') {
+  // Lazy load node-fetch if not present (when running in extension host without built-in fetch)
+  try { globalAny.fetch = require('node-fetch'); } catch(_) {}
+}
 
 /**
  * Simple ChatGPT wrapper using fetch to avoid ESM/CJS issues with official SDK.
