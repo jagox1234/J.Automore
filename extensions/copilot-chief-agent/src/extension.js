@@ -64,15 +64,15 @@ function checkForUpdate(output, opts={}) {
                     const tag = json.tag_name || '';
                     const latestVer = (asset && /copilot-chief-agent-(\d+\.\d+\.\d+)\.vsix/.exec(asset.name))?.[1] || tag.replace(/^.*v/, '');
                     output.appendLine(`[update] Versión local ${current} - remota ${latestVer}`);
-                                        if (latestVer && isNewer(latestVer, current) && asset) {
+                                if (latestVer && isNewer(latestVer, current) && asset) {
                                                 if (opts.silentInstall) {
-                                                        output.appendLine('[update] Nueva versión ' + latestVer + ' detectada. Instalación silenciosa...');
-                                                        downloadAndInstall(asset.browser_download_url, asset.name, output).finally(resolve);
+                                    output.appendLine('[update] Nueva versión ' + latestVer + ' detectada. Instalación silenciosa...');
+                                    downloadAndInstall(asset.browser_download_url, asset.name, output, latestVer).finally(resolve);
                                                 } else {
                                                         vscode.window.showInformationMessage(`Copilot Chief Agent ${latestVer} disponible. ¿Actualizar ahora?`, 'Actualizar', 'Omitir')
                                                             .then(sel => {
                                                                 if (sel === 'Actualizar') {
-                                                                        downloadAndInstall(asset.browser_download_url, asset.name, output).finally(resolve);
+                                        downloadAndInstall(asset.browser_download_url, asset.name, output, latestVer).finally(resolve);
                                                                 } else resolve();
                                                             });
                                                 }
@@ -90,7 +90,7 @@ function isNewer(a, b) {
     return false;
 }
 
-function downloadAndInstall(url, name, output) {
+function downloadAndInstall(url, name, output, versionHint) {
     return new Promise((resolve) => {
         const filePath = require('path').join(require('os').tmpdir(), name);
         output.appendLine('[update] Descargando ' + url);
@@ -106,8 +106,14 @@ function downloadAndInstall(url, name, output) {
                         // Usa CLI de VS Code. Debe existir 'code' en PATH.
                         const cmd = process.platform.startsWith('win') ? `code --install-extension "${filePath}" --force` : `code --install-extension '${filePath}' --force`;
                         cp.exec(cmd, (err, stdout, stderr) => {
-                            if (err) output.appendLine('[update] error instalación: ' + (stderr||err.message));
-                            else output.appendLine('[update] Instalado. Reinicia la ventana para aplicar.');
+                            if (err) {
+                                output.appendLine('[update] error instalación: ' + (stderr||err.message));
+                            } else {
+                                output.appendLine('[update] Instalado. Reinicia la ventana para aplicar.');
+                                const verMsg = versionHint ? ' a ' + versionHint : '';
+                                vscode.window.showInformationMessage('Copilot Chief actualizado' + verMsg + '. ¿Recargar ahora?', 'Recargar ahora', 'Luego')
+                                  .then(choice => { if (choice === 'Recargar ahora') { vscode.commands.executeCommand('workbench.action.reloadWindow'); } });
+                            }
                             resolve();
                         });
                     } catch(e) { output.appendLine('[update] excepción instalación: ' + e.message); resolve(); }
