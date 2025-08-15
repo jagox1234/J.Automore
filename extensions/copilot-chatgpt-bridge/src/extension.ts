@@ -1,25 +1,21 @@
 import * as vscode from 'vscode';
-import { ChatPanel } from './chatPanel';
 import { activateCopilotListener } from './copilotListener';
+import { indexProject } from './projectIndexer';
+import { initializeContext } from './openaiClient';
+import { activateChatPanel } from './panelCompat';
 
-export function activate(context: vscode.ExtensionContext) {
+let globalContextCache = '';
+export function getGlobalContext() { return globalContextCache; }
+
+export async function activate(context: vscode.ExtensionContext) {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (root) {
+    initializeContext(root);
+    setTimeout(() => { try { globalContextCache = indexProject(root); } catch (e) { console.error('Index error', e); } }, 25);
+  }
   context.subscriptions.push(
-    vscode.commands.registerCommand('copilotBridge.start', () => {
-      ChatPanel.createOrShow(context);
-    }),
-    vscode.commands.registerCommand('copilotBridge.setGoal', async () => {
-      const goal = await vscode.window.showInputBox({ prompt: 'Objetivo general' });
-      if (goal && ChatPanel.current) {
-        ChatPanel.current['goal'] = goal; // quick set
-      }
-    }),
-    vscode.commands.registerCommand('copilotBridge.toggle', () => {
-      if (ChatPanel.current) {
-        (ChatPanel.current as any).autoMode = !(ChatPanel.current as any).autoMode;
-      }
-    })
+    vscode.commands.registerCommand('copilotBridge.openChatPanel', () => activateChatPanel(context))
   );
-
   activateCopilotListener(context);
 }
 
