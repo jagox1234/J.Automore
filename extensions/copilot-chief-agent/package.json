@@ -6,7 +6,7 @@
   "publisher": "jautomore",
   "engines": { "vscode": "^1.75.0" },
   "categories": ["Other"],
-  "activationEvents": ["onCommand:copilotChief.startAgent"],
+  "activationEvents": ["onStartupFinished","onCommand:copilotChief.startAgent"],
   "main": "./src/extension.js",
   "contributes": {
     "commands": [
