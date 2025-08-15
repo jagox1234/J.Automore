@@ -15,6 +15,8 @@ function activate(context) {
         if (objective) {
             output.appendLine('[command] objective recibido: ' + objective);
             startAgent(objective);
+            // Abrir panel de estado automáticamente
+            try { openStatusPanel(context); } catch {}
         } else {
             output.appendLine('[command] cancelado sin objetivo');
         }
@@ -120,7 +122,8 @@ let statusBarItem;
 function initStatusBar(context){
     if(!statusBarItem){
         statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-        statusBarItem.command = 'copilot-chief-agent.statusPanel';
+    // Debe coincidir con el ID registrado en package.json
+    statusBarItem.command = 'copilotChief.statusPanel';
         context.subscriptions.push(statusBarItem);
     }
     const refresh = () => {
