@@ -65,6 +65,11 @@ jobs:
         working-directory: extensions/copilot-chief-agent
         run: npm install --no-audit --no-fund || true
 
+      - name: Optional AI review (skips if no key)
+        run: |
+          node scripts/review.mjs || echo 'review script terminó'
+        continue-on-error: true
+
       - name: Generate changelog section
         id: changelog
         run: |

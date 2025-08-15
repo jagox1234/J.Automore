@@ -174,8 +174,12 @@ function toMarkdown(reports) {
 async function main() {
   const cfg = loadConfig();
   if (!process.env.OPENAI_API_KEY) {
-    console.error('Falta OPENAI_API_KEY');
-    process.exit(1);
+    console.warn('OPENAI_API_KEY no presente: se omite la revisión AI (exit 0)');
+    // Crear artefactos vacíos esperados para no romper pasos posteriores
+    const empty = '[]';
+    try { fs.writeFileSync('review.json', empty); } catch {}
+    try { fs.writeFileSync('review.md', 'Revisión omitida: falta OPENAI_API_KEY'); } catch {}
+    return; // exit 0
   }
   const includes = buildMatchers(cfg.includePatterns || []);
   const excludes = buildMatchers(cfg.excludePatterns || []);

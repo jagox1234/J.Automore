@@ -1,5 +1,5 @@
 // trigger: workflow release seed
-// minor noop comment to trigger CI for release verification v3
+// minor noop comment to trigger CI for release verification v4
 const vscode = require('vscode');
 const { startAgent, agentState } = require('./agent');
 const apiKeyStore = require('./apiKeyStore');
