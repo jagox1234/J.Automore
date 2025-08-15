@@ -107,6 +107,10 @@ function openStatusPanel(context) {
                         .meta { margin-top:12px; font-size:12px; line-height:1.4; }
                         button { background:#0d6efd; color:#fff; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; }
                         button:hover { background:#1d78ff; }
+                        .apikey { margin-top:16px; padding:12px; background:#1b1b1b; border:1px solid #333; border-radius:6px; }
+                        .apikey h2 { margin:0 0 8px; font-size:13px; }
+                        .apikey input { width:100%; background:#111; color:#eee; border:1px solid #444; padding:6px 8px; border-radius:4px; font-family:monospace; }
+                        .apikey small { display:block; margin-top:6px; opacity:.6; line-height:1.3; }
                         </style></head><body>
                         <div class='card'>
                             <h1>Estado del Agente</h1>
@@ -119,21 +123,66 @@ function openStatusPanel(context) {
                             </div>
                             <div style='margin-top:14px;'>
                                 <button onclick='vscode.postMessage({ cmd: "refresh" })'>Refrescar</button>
+                                <button onclick='vscode.postMessage({ cmd: "openKeyPalette" })'>Cambiar API Key (InputBox)</button>
+                            </div>
+                            <div class='apikey'>
+                                <h2>OpenAI API Key</h2>
+                                <input id='ak' type='password' placeholder='sk-...' />
+                                <div style='margin-top:8px; display:flex; gap:8px;'>
+                                    <button onclick='saveKey()'>Guardar</button>
+                                    <button onclick='toggle()'>Mostrar/Ocultar</button>
+                                </div>
+                                <small>La clave se guarda en Secret Storage local de VS Code (no en settings ni en texto plano). Vacía el campo y guarda para eliminarla.</small>
                             </div>
                             <p style='margin-top:10px; font-size:11px; opacity:.7;'>Se actualiza automáticamente cada 5s.</p>
                         </div>
                         <script>
                             const vscode = acquireVsCodeApi();
                             setInterval(()=>vscode.postMessage({cmd:'refresh'}),5000);
-                            window.addEventListener('message', e => { if(e.data.html){ document.documentElement.innerHTML = e.data.html; } });
+                            window.addEventListener('message', e => { 
+                               if(e.data.html){ document.documentElement.innerHTML = e.data.html; }
+                               if(e.data.apiKeyPresent !== undefined){
+                                   const input = document.getElementById('ak');
+                                   if(input && e.data.apiKeyPresent){ input.value = '********'; }
+                               }
+                            });
+                            function saveKey(){
+                               const v = document.getElementById('ak').value.trim();
+                               vscode.postMessage({ cmd:'saveApiKey', value: v });
+                            }
+                            function toggle(){
+                               const i = document.getElementById('ak');
+                               if(!i) return; i.type = i.type === 'password' ? 'text' : 'password';
+                            }
+                            // Pedir estado inicial clave
+                            vscode.postMessage({ cmd:'checkKey' });
                         </script>
                         </body></html>`;
                 } catch (e) {
                         panel.webview.html = '<pre>Error renderizando estado: '+e.message+'</pre>';
                 }
         };
+        // escape html util (declared once)
         const escapeHtml = (s)=> s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-        panel.webview.onDidReceiveMessage(msg => { if (msg.cmd==='refresh') render(); });
+        panel.webview.onDidReceiveMessage(async msg => { 
+            if (msg.cmd==='refresh') return render();
+            if (msg.cmd==='checkKey') {
+                const k = await apiKeyStore.getApiKey();
+                panel.webview.postMessage({ apiKeyPresent: !!k });
+            }
+            if (msg.cmd==='saveApiKey') {
+                const val = (msg.value||'').trim();
+                if(!val){ await apiKeyStore.setApiKey(''); vscode.window.showInformationMessage('API Key eliminada'); }
+                else {
+                    await apiKeyStore.setApiKey(val);
+                    vscode.window.showInformationMessage('API Key guardada.');
+                }
+                panel.webview.postMessage({ apiKeyPresent: !!val });
+            }
+            if (msg.cmd==='openKeyPalette') {
+                vscode.commands.executeCommand('copilotChief.setApiKey');
+            }
+        });
         render();
 }
 
