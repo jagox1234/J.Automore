@@ -25,6 +25,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: extensions/copilot-chief-agent/package-lock.json
 
       - name: Install tooling
         run: |
@@ -122,3 +124,10 @@ jobs:
           files: extensions/copilot-chief-agent/*.vsix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify release exists (debug)
+        run: |
+          TAG="copilot-chief-agent-v${{ steps.finalver.outputs.version }}"
+          echo "Comprobando release para tag $TAG"
+          curl -sSfL "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" | jq '.tag_name,.assets|length,.assets[].name' || echo 'No encontrado'
+          echo 'Listado de tags:'
+          git --no-pager tag -n --sort=-creatordate | head -n 15
