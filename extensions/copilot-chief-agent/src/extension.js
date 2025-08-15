@@ -1,3 +1,4 @@
+// trigger: workflow release seed
 const vscode = require('vscode');
 const { startAgent, agentState } = require('./agent');
 const apiKeyStore = require('./apiKeyStore');
