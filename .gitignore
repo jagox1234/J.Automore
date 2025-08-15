@@ -1,5 +1,7 @@
 node_modules/
 .env
+# .env.example -> si quieres ignorarlo descomenta la línea siguiente
+# .env.example
 package-lock.json
 .DS_Store
 dist/

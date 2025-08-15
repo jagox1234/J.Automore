@@ -11,6 +11,7 @@
   "review:patches": "powershell -Command \"$env:GENERATE_PATCH=1; node scripts/review.mjs\"",
   "patch:apply": "node scripts/applyPatch.mjs",
   "patch:apply:dry": "powershell -Command \"$env:DRY_RUN=1; node scripts/applyPatch.mjs\""
+  ,"agent:update": "node scripts/update-chief-agent.mjs"
   },
   "keywords": [
     "automation",

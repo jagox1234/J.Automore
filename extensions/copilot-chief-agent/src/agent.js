@@ -4,12 +4,7 @@ const { scanProject } = require('./projectScanner');
 const { askChatGPT } = require('./openaiClient');
 const { saveMemory, loadMemory } = require('./memoryManager');
 const { nextStep, markStepComplete } = require('./stepManager');
-
-const vscode = require('vscode');
-const { scanProject } = require('./projectScanner');
-const { askChatGPT } = require('./openaiClient');
-const { saveMemory, loadMemory } = require('./memoryManager');
-const { nextStep, markStepComplete } = require('./stepManager');
+const cp = require('child_process');
 
 let workspaceRootPath = '';
 let projectContext = '';
@@ -79,10 +74,40 @@ async function executeNextStep() {
 
     // Consider code insertion as progress
     markStepComplete(workspaceRootPath, step);
-    await editor.edit(b => b.insert(editor.selection.active, `\n// Copilot Chief: Paso marcado como completado. Avanzando...\n`));
+    const autoCommit = vscode.workspace.getConfiguration('copilotChief').get('autoGitCommit');
+    if (autoCommit) {
+      try {
+        await gitCommitStep(step);
+        await editor.edit(b => b.insert(editor.selection.active, `\n// Copilot Chief: Paso completado y commit creado. Avanzando...\n`));
+      } catch (e) {
+        await editor.edit(b => b.insert(editor.selection.active, `\n// Copilot Chief: Paso completado pero falló commit (${e.message}). Avanzando...\n`));
+      }
+    } else {
+      await editor.edit(b => b.insert(editor.selection.active, `\n// Copilot Chief: Paso marcado como completado. Avanzando...\n`));
+    }
     activeListener.dispose();
     executeNextStep();
   });
 }
 
 module.exports = { startAgent };
+
+async function gitCommitStep(step) {
+  return new Promise((resolve, reject) => {
+    // Simple add & commit all changes; could be refined to only changed files.
+    const msg = sanitizeCommitMessage(step);
+    const cmd = process.platform.startsWith('win')
+      ? `git add -A && git commit -m "feat(step): ${msg}"`
+      : `git add -A && git commit -m 'feat(step): ${msg}'`;
+    cp.exec(cmd, { cwd: workspaceRootPath }, (err, stdout, stderr) => {
+      if (err) {
+        return reject(new Error(stderr.trim() || err.message));
+      }
+      resolve(stdout.trim());
+    });
+  });
+}
+
+function sanitizeCommitMessage(step) {
+  return step.replace(/"/g, '\\"').replace(/\s+/g, ' ').slice(0, 80);
+}

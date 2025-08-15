@@ -39,6 +39,11 @@
           "type": "number",
           "default": 15,
           "description": "Límite máximo de pasos generados en el plan inicial"
+        },
+        "copilotChief.autoGitCommit": {
+          "type": "boolean",
+          "default": false,
+          "description": "Si está activo, al completar cada paso crea un commit automático con el mensaje del paso"
         }
       }
     }
