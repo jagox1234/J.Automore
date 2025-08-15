@@ -41,12 +41,13 @@ function checkForUpdate(output, context) {
             path: '/repos/jagox1234/J.Automore/releases/latest',
             headers: { 'User-Agent': 'copilot-chief-agent' }
         };
-        https.get(options, res => {
+    https.get(options, res => {
             let data = '';
             res.on('data', c => data += c);
             res.on('end', () => {
                 try {
-                    if (res.statusCode !== 200) { output.appendLine('[update] HTTP ' + res.statusCode); return resolve(); }
+            if (res.statusCode === 404) { output.appendLine('[update] No hay releases publicados aún (404).'); return resolve(); }
+            if (res.statusCode !== 200) { output.appendLine('[update] HTTP ' + res.statusCode); return resolve(); }
                     const json = JSON.parse(data);
                     const asset = (json.assets||[]).find(a => a.name && a.name.endsWith('.vsix'));
                     const tag = json.tag_name || '';
