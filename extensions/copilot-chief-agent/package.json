@@ -39,6 +39,10 @@
       {
         "command": "copilotChief.testApiKey",
         "title": "Copilot Chief: Probar API Key"
+      },
+      {
+        "command": "copilotChief.commands",
+        "title": "Copilot Chief: Comandos"
       }
     ],
     "configuration": {

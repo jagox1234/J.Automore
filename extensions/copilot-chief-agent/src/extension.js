@@ -84,7 +84,20 @@ function activate(context) {
             vscode.window.showErrorMessage('Problemas: ' + issues.join(' | ') + ' | ' + summary);
         }
     });
-    context.subscriptions.push(disposable, manualUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, output);
+    const commandsCmd = vscode.commands.registerCommand('copilotChief.commands', async () => {
+        const picks = [
+            { label: '$(rocket) Iniciar Agente', cmd: 'copilotChief.startAgent' },
+            { label: '$(beaker) Diagnóstico', cmd: 'copilotChief.diagnose' },
+            { label: '$(key) Configurar API Key', cmd: 'copilotChief.setApiKey' },
+            { label: '$(shield) Probar API Key', cmd: 'copilotChief.testApiKey' },
+            { label: '$(sync) Buscar Actualizaciones', cmd: 'copilotChief.checkUpdates' },
+            { label: '$(graph) Panel de Estado', cmd: 'copilotChief.statusPanel' }
+        ];
+        const sel = await vscode.window.showQuickPick(picks, { placeHolder: 'Comandos Copilot Chief' });
+        if (sel) vscode.commands.executeCommand(sel.cmd);
+    });
+
+    context.subscriptions.push(disposable, manualUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, output);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeo de actualización
@@ -92,8 +105,8 @@ function activate(context) {
     if (cfg.get('autoUpdateCheck')) {
         scheduleUpdateChecks(cfg, output);
     }
-    // Init status bar item
-    initStatusBar(context);
+    // Init status bar items
+    initStatusBars(context);
 }
 
 function scheduleUpdateChecks(cfg, output) {
@@ -262,28 +275,47 @@ function openStatusPanel(context) {
         render();
 }
 
-let statusBarItem;
-function initStatusBar(context){
-    if(!statusBarItem){
-        statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    // Debe coincidir con el ID registrado en package.json
-    statusBarItem.command = 'copilotChief.statusPanel';
-        context.subscriptions.push(statusBarItem);
+let statusBarAgent, statusBarKey, statusBarMenu;
+async function initStatusBars(context){
+    if(!statusBarAgent){
+        statusBarAgent = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+        statusBarAgent.command = 'copilotChief.statusPanel';
+        context.subscriptions.push(statusBarAgent);
     }
-    const refresh = () => {
+    if(!statusBarKey){
+        statusBarKey = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+        statusBarKey.command = 'copilotChief.setApiKey';
+        context.subscriptions.push(statusBarKey);
+    }
+    if(!statusBarMenu){
+        statusBarMenu = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
+        statusBarMenu.command = 'copilotChief.commands';
+        context.subscriptions.push(statusBarMenu);
+    }
+    const refresh = async () => {
         try {
             const st = agentState ? agentState() : { running:false, planning:false };
-            let text = '$(robot) Chief: ';
-            if(st.running) text += '$(sync~spin) Run';
-            else if(st.planning) text += 'Plan';
-            else text += 'Idle';
-            statusBarItem.text = text;
-            statusBarItem.tooltip = `Estado del Agente\nObjetivo: ${st.objective || '—'}`;
-            statusBarItem.show();
+            let text = '$(robot) Chief:';
+            if(st.running) text += ' $(sync~spin)';
+            else if(st.planning) text += ' Plan';
+            else text += ' Idle';
+            statusBarAgent.text = text;
+            statusBarAgent.tooltip = `Estado del Agente\nObjetivo: ${st.objective || '—'}`;
+            statusBarAgent.show();
         } catch (e) {
-            statusBarItem.text = 'Chief: Err';
-            statusBarItem.tooltip = e.message;
+            statusBarAgent.text = 'Chief: Err';
+            statusBarAgent.tooltip = e.message;
         }
+        try {
+            const k = await apiKeyStore.getApiKey();
+            statusBarKey.text = k ? '$(key) Key OK' : '$(key) Key?';
+            statusBarKey.tooltip = k ? 'API Key configurada (clic para cambiar)' : 'Configurar API Key';
+            statusBarKey.color = k ? undefined : '#f87171';
+            statusBarKey.show();
+        } catch {}
+        statusBarMenu.text = '$(menu)';
+        statusBarMenu.tooltip = 'Menú de comandos Copilot Chief';
+        statusBarMenu.show();
     };
     setInterval(refresh, 4000);
     refresh();
