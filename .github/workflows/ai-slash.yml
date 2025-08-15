@@ -57,3 +57,97 @@ jobs:
               issue_number: pr,
               body: '### 🤖 Parches sugeridos (slash command)\n\n' + body + '\n\n_Artifact: review.patch_'
             });
+
+  apply:
+    if: >-
+      contains(github.event.comment.body, '/ai apply')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Extract PR number
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = (context.payload.issue && context.payload.issue.number) || (context.payload.pull_request && context.payload.pull_request.number);
+            if (!pr) { core.setFailed('No PR'); } else { core.setOutput('number', pr); }
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install deps
+        run: npm install openai@4.0.0 node-fetch@3 dotenv simple-git
+      - name: Generate fresh patch (if not present)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GENERATE_PATCH: 1
+        run: node scripts/review.mjs || true
+      - name: Apply patch
+        id: apply
+        run: |
+          if [ ! -f review.patch ]; then echo "::warning::No review.patch file"; exit 0; fi
+          echo "--- Patch preview ---"; head -n 50 review.patch || true
+          git config user.name "ai-bot"
+          git config user.email "actions@github.com"
+          # Create a working branch off current HEAD
+          BRANCH="ai-auto-$(date +%s)"
+          git checkout -b "$BRANCH"
+          # Check patch applicability
+          set +e
+          git apply --check review.patch
+          if [ $? -ne 0 ]; then echo "::error::Patch no aplica limpio"; exit 1; fi
+          set -e
+          git apply review.patch
+          git add .
+          if git diff --cached --quiet; then echo "::notice::No changes after patch"; exit 0; fi
+          git commit -m "feat(ai): aplicar sugerencias automáticas"
+          git push origin "$BRANCH"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+      - name: Crear PR
+        if: steps.apply.outputs.branch
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branch = process.env.BRANCH || '${{ steps.apply.outputs.branch }}';
+            const base = context.payload.pull_request ? context.payload.pull_request.base.ref : 'main';
+            const prNumber = (context.payload.issue && context.payload.issue.number) || (context.payload.pull_request && context.payload.pull_request.number);
+            const title = `AI Apply suggestions for PR #${prNumber}`;
+            const body = 'Aplicación automática de patch generado por /ai apply';
+            const res = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: branch,
+              base,
+              title,
+              body
+            });
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `✅ Patch aplicado en la rama ${branch}. PR creado: #${res.data.number}`
+            });
+      - name: Comment fallback
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = (context.payload.issue && context.payload.issue.number) || (context.payload.pull_request && context.payload.pull_request.number);
+            if (pr) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                body: '❌ No se pudo aplicar el patch automáticamente. Revisa el artifact o conflictos.'
+              });
+            }

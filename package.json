@@ -8,7 +8,9 @@
   "scripts": {
     "bot": "node bot.js",
     "review": "node scripts/review.mjs",
-    "review:patches": "powershell -Command \"$env:GENERATE_PATCH=1; node scripts/review.mjs\""
+  "review:patches": "powershell -Command \"$env:GENERATE_PATCH=1; node scripts/review.mjs\"",
+  "patch:apply": "node scripts/applyPatch.mjs",
+  "patch:apply:dry": "powershell -Command \"$env:DRY_RUN=1; node scripts/applyPatch.mjs\""
   },
   "keywords": [
     "automation",
