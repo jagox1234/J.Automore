@@ -751,3 +751,6 @@
 * chore(root): update publisher/repository for copilot-chief-agent packaging (12341a5)
 * feat(agent): primera versión agente jefe Copilot autónomo (plan, pasos, preguntas) (bcd24de)
 
+## v0.1.23 - 2025-08-15
+* chore(agent): auto bump version to 0.1.23 [skip-agent] (448c0ec)
+
