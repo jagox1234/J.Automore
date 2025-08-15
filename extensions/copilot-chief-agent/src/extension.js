@@ -1,5 +1,7 @@
 const vscode = require('vscode');
 const { startAgent } = require('./agent');
+const https = require('https');
+const cp = require('child_process');
 
 function activate(context) {
     const output = vscode.window.createOutputChannel('Copilot Chief');
@@ -17,8 +19,86 @@ function activate(context) {
             output.appendLine('[command] cancelado sin objetivo');
         }
     });
-    context.subscriptions.push(disposable, output);
+    const manualUpdate = vscode.commands.registerCommand('copilotChief.checkUpdates', () => {
+        checkForUpdate(output, context);
+    });
+    context.subscriptions.push(disposable, manualUpdate, output);
     output.appendLine('[activate] Comando registrado');
+
+    // Chequeo de actualización
+    const cfg = vscode.workspace.getConfiguration('copilotChief');
+    if (cfg.get('autoUpdateCheck')) {
+        checkForUpdate(output, context).catch(err => output.appendLine('[update] error: ' + err.message));
+    }
+}
+
+function checkForUpdate(output, context) {
+    return new Promise((resolve) => {
+        const pkg = require('../package.json');
+        const current = pkg.version;
+        const options = {
+            hostname: 'api.github.com',
+            path: '/repos/jagox1234/J.Automore/releases/latest',
+            headers: { 'User-Agent': 'copilot-chief-agent' }
+        };
+        https.get(options, res => {
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => {
+                try {
+                    if (res.statusCode !== 200) { output.appendLine('[update] HTTP ' + res.statusCode); return resolve(); }
+                    const json = JSON.parse(data);
+                    const asset = (json.assets||[]).find(a => a.name && a.name.endsWith('.vsix'));
+                    const tag = json.tag_name || '';
+                    const latestVer = (asset && /copilot-chief-agent-(\d+\.\d+\.\d+)\.vsix/.exec(asset.name))?.[1] || tag.replace(/^.*v/, '');
+                    output.appendLine(`[update] Versión local ${current} - remota ${latestVer}`);
+                    if (latestVer && isNewer(latestVer, current) && asset) {
+                        vscode.window.showInformationMessage(`Copilot Chief Agent ${latestVer} disponible. ¿Actualizar ahora?`, 'Actualizar', 'Omitir')
+                          .then(sel => {
+                            if (sel === 'Actualizar') {
+                                downloadAndInstall(asset.browser_download_url, asset.name, output).finally(resolve);
+                            } else resolve();
+                          });
+                    } else resolve();
+                } catch (e) { output.appendLine('[update] parse error ' + e.message); resolve(); }
+            });
+        }).on('error', err => { output.appendLine('[update] req error ' + err.message); resolve(); });
+    });
+}
+
+function isNewer(a, b) {
+    const pa = a.split('.').map(n=>parseInt(n,10));
+    const pb = b.split('.').map(n=>parseInt(n,10));
+    for (let i=0;i<3;i++) { if (pa[i]>pb[i]) return true; if (pa[i]<pb[i]) return false; }
+    return false;
+}
+
+function downloadAndInstall(url, name, output) {
+    return new Promise((resolve) => {
+        const filePath = require('path').join(require('os').tmpdir(), name);
+        output.appendLine('[update] Descargando ' + url);
+        const fs = require('fs');
+        const req = https.get(url, res => {
+            if (res.statusCode !== 200) { output.appendLine('[update] descarga HTTP ' + res.statusCode); return resolve(); }
+            const file = fs.createWriteStream(filePath);
+            res.pipe(file);
+            file.on('finish', () => {
+                file.close(() => {
+                    output.appendLine('[update] Instalando VSIX ' + filePath);
+                    try {
+                        // Usa CLI de VS Code. Debe existir 'code' en PATH.
+                        const cmd = process.platform.startsWith('win') ? `code --install-extension "${filePath}" --force` : `code --install-extension '${filePath}' --force`;
+                        cp.exec(cmd, (err, stdout, stderr) => {
+                            if (err) output.appendLine('[update] error instalación: ' + (stderr||err.message));
+                            else output.appendLine('[update] Instalado. Reinicia la ventana para aplicar.');
+                            resolve();
+                        });
+                    } catch(e) { output.appendLine('[update] excepción instalación: ' + e.message); resolve(); }
+                });
+            });
+        });
+        req.on('error', e => { output.appendLine('[update] error descarga: ' + e.message); resolve(); });
+    });
 }
 
 function deactivate() {}

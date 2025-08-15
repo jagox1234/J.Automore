@@ -11,8 +11,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:copilotChief.startAgent"
+    "onStartupFinished"
   ],
   "main": "./src/extension.js",
   "contributes": {
@@ -20,6 +19,10 @@
       {
         "command": "copilotChief.startAgent",
         "title": "Copilot Chief: Iniciar Agente"
+      },
+      {
+        "command": "copilotChief.checkUpdates",
+        "title": "Copilot Chief: Buscar Actualizaciones"
       }
     ],
     "configuration": {
@@ -44,6 +47,11 @@
           "type": "boolean",
           "default": false,
           "description": "Si está activo, al completar cada paso crea un commit automático con el mensaje del paso"
+        },
+        "copilotChief.autoUpdateCheck": {
+          "type": "boolean",
+          "default": true,
+          "description": "Comprueba en el arranque si hay una versión nueva en GitHub Releases y ofrece actualizar"
         }
       }
     }
