@@ -5,9 +5,9 @@ const vscode = require('vscode');
  */
 async function askChatGPT(prompt) {
   const config = vscode.workspace.getConfiguration('copilotChief');
-  const key = config.get('openaiApiKey');
+  const key = process.env.OPENAI_API_KEY || config.get('openaiApiKey');
   if (!key) {
-    vscode.window.showErrorMessage('Configura copilotChief.openaiApiKey');
+    vscode.window.showWarningMessage('OpenAI API key no encontrada (OPENAI_API_KEY env o copilotChief.openaiApiKey).');
     return '';
   }
   const model = config.get('model') || 'gpt-4o-mini';
