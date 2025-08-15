@@ -68,7 +68,12 @@ jobs:
           if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..HEAD"; fi
           LOG=$(git log $RANGE --pretty=format:'* %s (%h)' -- extensions/copilot-chief-agent || true)
           [ -z "$LOG" ] && LOG='* Cambios menores internos'
-          echo "notes=## v$NEW_VER - $(date +%Y-%m-%d)%0A$LOG" >> $GITHUB_OUTPUT
+          {
+            echo 'notes<<EOF'
+            echo "## v$NEW_VER - $(date +%Y-%m-%d)"
+            echo "$LOG"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
           printf "## v%s - %s\n%s\n\n" "$NEW_VER" "$(date +%Y-%m-%d)" "$LOG" >> extensions/copilot-chief-agent/CHANGELOG.md
           git add extensions/copilot-chief-agent/CHANGELOG.md || true
           git commit -m "docs(agent): update changelog v$NEW_VER [skip-agent]" || echo 'No changelog commit'
