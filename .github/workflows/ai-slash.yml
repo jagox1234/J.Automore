@@ -1,0 +1,59 @@
+name: AI Slash Commands
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  patches:
+    if: >-
+      contains(github.event.comment.body, '/ai patches') ||
+      contains(github.event.comment.body, '/ai parche')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install deps
+        run: npm install openai@4.0.0 node-fetch@3 dotenv simple-git
+      - name: Run review with patches
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GENERATE_PATCH: 1
+        run: node scripts/review.mjs
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-patch-review
+          path: |
+            review.json
+            review.md
+            review.patch
+      - name: Comment patch summary
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const pr = (context.payload.issue && context.payload.issue.number) || (context.payload.pull_request && context.payload.pull_request.number);
+            if (!pr) { core.setFailed('No PR number'); return; }
+            let body = 'No se generó resumen';
+            try { body = fs.readFileSync('review.md','utf8').slice(0, 60000); } catch {}
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr,
+              body: '### 🤖 Parches sugeridos (slash command)\n\n' + body + '\n\n_Artifact: review.patch_'
+            });

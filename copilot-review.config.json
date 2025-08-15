@@ -8,6 +8,9 @@
   "maxIssuesPerFile": 12,
   "output": {
     "json": "review.json",
-    "markdown": "review.md"
-  }
+    "markdown": "review.md",
+    "patch": "review.patch"
+  },
+  "cacheFile": ".ai/review-cache.json",
+  "generatePatchDiff": true
 }

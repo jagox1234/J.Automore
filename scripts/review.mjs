@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import simpleGit from 'simple-git';
 import OpenAI from 'openai';
 
@@ -17,7 +18,9 @@ function loadConfig() {
       maxFileSizeKB: 200,
       useDiff: true,
       maxIssuesPerFile: 12,
-      output: { json: 'review.json', markdown: 'review.md' }
+  output: { json: 'review.json', markdown: 'review.md', patch: 'review.patch' },
+  cacheFile: '.ai/review-cache.json',
+  generatePatchDiff: true
     };
   }
   return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
@@ -85,13 +88,42 @@ Devuelve SOLO un JSON con esta estructura exacta (sin texto adicional):\n\n{
 === START ${mode} (${file}) ===\n${snippet}\n=== END ===`;
 }
 
-async function reviewFile(cfg, openai, file) {
+function hashContent(content) {
+  return crypto.createHash('sha256').update(content).digest('hex');
+}
+
+function ensureDir(p) {
+  const dir = path.dirname(p);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
+
+async function generatePatch(openai, file, code, issues) {
+  if (!issues.length) return '';
+  const issuesList = issues.map((i, idx) => `${idx + 1}. Línea ${i.line ?? 'N/A'} - ${i.issue}`).join('\n');
+  const prompt = `Genera un diff unificado (formato git) MODIFICANDO SOLO lo necesario para resolver estos issues en ${file}. No reescribas partes sin cambios. Devuelve SOLO el diff.\nIssues:\n${issuesList}\n\nArchivo original:\n\n${code}`;
+  const res = await openai.responses.create({
+    model: 'gpt-4o-mini',
+    input: prompt,
+    temperature: 0.1
+  });
+  const out = res.output_text || '';
+  // Heuristic: keep only lines starting with diff header or @@ or + - space
+  const match = out.match(/diff --git[\s\S]*/);
+  return match ? match[0].trim() : out.trim();
+}
+
+async function reviewFile(cfg, openai, file, cache) {
   const sizeOK = fileSizeKB(file) <= cfg.maxFileSizeKB;
   if (!sizeOK) {
     return { file, issues: [{ line: null, issue: 'Archivo demasiado grande, omitido (> maxFileSizeKB)', copilotPrompt: 'Dividir el archivo o reducir tamaño antes de nueva revisión.' }] };
   }
   let code = '';
   try { code = fs.readFileSync(file, 'utf8'); } catch { /* ignore */ }
+  const contentHash = hashContent(code);
+  const cached = cache[file];
+  if (cached && cached.hash === contentHash) {
+    return { ...cached.result, _fromCache: true };
+  }
   const diff = cfg.useDiff ? await getDiffPatch(file) : '';
   const prompt = buildPrompt({ file, code, diff, useDiff: cfg.useDiff, maxIssues: cfg.maxIssuesPerFile });
   const res = await openai.responses.create({
@@ -118,7 +150,9 @@ async function reviewFile(cfg, openai, file) {
     issue: String(it.issue || '').slice(0, 180),
     copilotPrompt: String(it.copilotPrompt || '').slice(0, 500)
   })).slice(0, cfg.maxIssuesPerFile);
-  return parsed;
+  const result = parsed;
+  cache[file] = { hash: contentHash, result };
+  return result;
 }
 
 function toMarkdown(reports) {
@@ -146,6 +180,11 @@ async function main() {
   const includes = buildMatchers(cfg.includePatterns || []);
   const excludes = buildMatchers(cfg.excludePatterns || []);
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const cacheFile = cfg.cacheFile || '.ai/review-cache.json';
+  let cache = {};
+  if (fs.existsSync(cacheFile)) {
+    try { cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8')); } catch { cache = {}; }
+  }
   const changed = await getChangedFiles();
   const target = changed.filter(f => matches(f, includes, excludes));
   if (!target.length) {
@@ -155,16 +194,29 @@ async function main() {
     return;
   }
   const reports = [];
+  const patchSegments = [];
   for (const file of target) {
     try {
       console.error('Revisando', file);
-      reports.push(await reviewFile(cfg, openai, file));
+      const r = await reviewFile(cfg, openai, file, cache);
+      reports.push(r);
+      if (cfg.generatePatchDiff && !r._fromCache && process.env.GENERATE_PATCH === '1') {
+        const code = fs.readFileSync(file, 'utf8');
+        const patch = await generatePatch(openai, file, code, r.issues);
+        if (patch) patchSegments.push(patch);
+      }
     } catch (e) {
       reports.push({ file, issues: [{ line: null, issue: 'Error en revisión: ' + e.message, copilotPrompt: 'Revisar manualmente el archivo.' }] });
     }
   }
   fs.writeFileSync(cfg.output.json, JSON.stringify(reports, null, 2));
   fs.writeFileSync(cfg.output.markdown, toMarkdown(reports));
+  if (patchSegments.length) {
+    ensureDir(cfg.output.patch);
+    fs.writeFileSync(cfg.output.patch, patchSegments.join('\n\n'));
+  }
+  ensureDir(cacheFile);
+  fs.writeFileSync(cacheFile, JSON.stringify(cache, null, 2));
   console.log('Revisión completada.');
 }
 

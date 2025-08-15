@@ -6,8 +6,9 @@
   "type": "module",
   "main": "bot.js",
   "scripts": {
-  "bot": "node bot.js",
-  "review": "node scripts/review.mjs"
+    "bot": "node bot.js",
+    "review": "node scripts/review.mjs",
+    "review:patches": "powershell -Command \"$env:GENERATE_PATCH=1; node scripts/review.mjs\""
   },
   "keywords": [
     "automation",
