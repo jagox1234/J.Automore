@@ -1,0 +1,55 @@
+{
+  "name": "copilot-chatgpt-bridge",
+  "displayName": "Copilot + ChatGPT Bridge",
+  "description": "Puente interactivo entre GitHub Copilot y ChatGPT (OpenAI) con objetivo guiado.",
+  "version": "0.0.1",
+  "publisher": "your-name",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onCommand:copilotBridge.start",
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "copilotBridge.start", "title": "Copilot Bridge: Open Panel" },
+      { "command": "copilotBridge.setGoal", "title": "Copilot Bridge: Set Goal" },
+      { "command": "copilotBridge.toggle", "title": "Copilot Bridge: Toggle Auto Mode" }
+    ],
+    "configuration": {
+      "title": "Copilot Bridge",
+      "properties": {
+        "copilotBridge.openaiApiKey": {
+          "type": "string",
+            "default": "",
+            "description": "OpenAI API Key para ChatGPT (almacenada en settings.json)"
+        },
+        "copilotBridge.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "Modelo OpenAI a usar"
+        },
+        "copilotBridge.insertMode": {
+          "type": "string",
+          "enum": ["comment", "inline"],
+          "default": "comment",
+          "description": "Cómo insertar respuestas: comentario o inline"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --platform=node --outfile=dist/extension.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.5.0",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "openai": "^4.0.0"
+  }
+}

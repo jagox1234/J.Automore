@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Copilot ↔ ChatGPT Bridge</title>
+<style>
+body { font-family: system-ui, sans-serif; margin:0; padding:10px; background:#1e1e1e; color:#ddd; }
+#chat { max-height:60vh; overflow:auto; font-size:12px; line-height:1.4; background:#252526; padding:8px; border:1px solid #333; }
+.msg.user { color:#9cdcfe; }
+.msg.assistant { color:#c3e88d; }
+.bar { display:flex; gap:4px; margin-top:6px; }
+input[type=text] { flex:1; background:#333; color:#eee; border:1px solid #444; padding:4px; }
+button { background:#0e639c; border:none; color:#fff; padding:4px 10px; cursor:pointer; }
+button:hover { background:#1177bb; }
+small { font-weight:normal; font-size:11px; }
+</style>
+</head>
+<body>
+<h3 style="margin-top:0">Copilot ↔ ChatGPT Bridge <small>Auto:<span id="autoState">ON</span></small></h3>
+<form id="goalForm" class="bar"><input id="goal" placeholder="Objetivo general" /><button>Set</button></form>
+<div id="chat"></div>
+<form id="askForm" class="bar"><input id="prompt" placeholder="Mensaje manual" /><button>Enviar</button><button type="button" id="toggleAuto">Auto</button></form>
+<script>
+const vscodeApi = acquireVsCodeApi();
+function send(type, value){ vscodeApi.postMessage({ type, value }); }
+window.addEventListener('message', ev => {
+  const { type, chat, value } = ev.data;
+  if(type==='state'){ render(chat); }
+  if(type==='autoMode'){ document.getElementById('autoState').textContent = value ? 'ON' : 'OFF'; }
+});
+function render(chat){
+  const wrap = document.getElementById('chat');
+  wrap.innerHTML = chat.map(c => `<div class="msg ${c.role}"><b>${c.role}:</b> ${c.content}</div>`).join('');
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+document.getElementById('goalForm').addEventListener('submit', e => { e.preventDefault(); send('setGoal', document.getElementById('goal').value); });
+document.getElementById('askForm').addEventListener('submit', e => { e.preventDefault(); send('ask', document.getElementById('prompt').value); document.getElementById('prompt').value=''; });
+document.getElementById('toggleAuto').addEventListener('click', ()=> send('toggleAuto'));
+</script>
+</body>
+</html>
