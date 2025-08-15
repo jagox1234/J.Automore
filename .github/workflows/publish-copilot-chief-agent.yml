@@ -1,0 +1,61 @@
+name: Publish Copilot Chief Agent
+
+on:
+  push:
+    paths:
+      - 'extensions/copilot-chief-agent/**'
+      - '.github/workflows/publish-copilot-chief-agent.yml'
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      forcePublish:
+        description: 'Publicar aunque solo haya cambios menores'
+        required: false
+        default: 'false'
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Install dependencies (extension)
+        working-directory: extensions/copilot-chief-agent
+        run: npm install --no-audit --no-fund || true
+
+      - name: Package VSIX
+        working-directory: extensions/copilot-chief-agent
+        run: vsce package --no-yarn
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilot-chief-agent-vsix
+          path: extensions/copilot-chief-agent/*.vsix
+
+      - name: Publish to Marketplace (if token present)
+        if: env.VSCE_PAT != ''
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT || '' }}
+        working-directory: extensions/copilot-chief-agent
+        run: |
+          echo "Intentando publicar versión $(jq -r .version package.json)" 
+          if [ -n "$VSCE_PAT" ]; then vsce publish -p $VSCE_PAT || echo 'Publicación fallida'; else echo 'VSCE_PAT no configurado'; fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: copilot-chief-agent-v${{ github.run_number }}
+          name: Copilot Chief Agent Build ${{ github.run_number }}
+          files: extensions/copilot-chief-agent/*.vsix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
