@@ -12,10 +12,12 @@ let steps = [];
 let objectiveGlobal = '';
 let activeListener = null;
 let planning = false;
+let running = false;
 
 async function startAgent(objective) {
   if (planning) return;
   planning = true;
+  running = false;
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {
     vscode.window.showErrorMessage('No hay carpeta abierta en VS Code.');
@@ -38,6 +40,7 @@ async function startAgent(objective) {
 
   vscode.window.showInformationMessage('Agente iniciado. Plan creado (' + steps.length + ' pasos).');
   planning = false;
+  running = true;
   executeNextStep();
 }
 
@@ -46,6 +49,7 @@ async function executeNextStep() {
   const step = nextStep(steps, mem.completed || []);
   if (!step) {
     vscode.window.showInformationMessage('Copilot Chief: Objetivo completado.');
+  running = false;
     return;
   }
   const editor = vscode.window.activeTextEditor;
@@ -90,7 +94,17 @@ async function executeNextStep() {
   });
 }
 
-module.exports = { startAgent };
+function agentState() {
+  return {
+    planning,
+    running,
+    objective: objectiveGlobal,
+    remaining: steps.length - (loadMemory(workspaceRootPath).completed || []).length,
+    total: steps.length
+  };
+}
+
+module.exports = { startAgent, agentState };
 
 async function gitCommitStep(step) {
   return new Promise((resolve, reject) => {
