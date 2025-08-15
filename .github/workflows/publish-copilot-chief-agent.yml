@@ -30,39 +30,30 @@ jobs:
         run: |
           npm install -g @vscode/vsce
 
-      - name: Get current & previous versions
+      - name: Get current version & last tag
         id: meta
         run: |
           CURR=$(jq -r .version extensions/copilot-chief-agent/package.json)
           echo "current=$CURR" >> $GITHUB_OUTPUT
-          PREV_FILE=$(git show HEAD^:extensions/copilot-chief-agent/package.json 2>/dev/null || echo '{}')
-          PREV=$(echo "$PREV_FILE" | jq -r '.version // ""')
-          echo "prev=$PREV" >> $GITHUB_OUTPUT
           LAST_TAG=$(git describe --tags --abbrev=0 --match 'copilot-chief-agent-v*' 2>/dev/null || echo '')
           echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
 
-      - name: Auto bump patch if unchanged
+      - name: Always auto bump patch
         id: bump
         run: |
           set -e
           CURR=${{ steps.meta.outputs.current }}
-          PREV=${{ steps.meta.outputs.prev }}
-          if [ "$CURR" = "$PREV" ]; then
-            IFS='.' read -r MA MI PA <<< "$CURR"
-            PA=$((PA+1))
-            NEW="$MA.$MI.$PA"
+          IFS='.' read -r MA MI PA <<< "$CURR"
+          PA=$((PA+1))
+          NEW="$MA.$MI.$PA"
             jq ".version=\"$NEW\"" extensions/copilot-chief-agent/package.json > tmp.$$ && mv tmp.$$ extensions/copilot-chief-agent/package.json
-            echo "version=$NEW" >> $GITHUB_OUTPUT
-            echo "Bumped version to $NEW"
-            git config user.name 'agent-bot'
-            git config user.email 'agent-bot@users.noreply.github.com'
-            git add extensions/copilot-chief-agent/package.json
-            git commit -m "chore(agent): bump version to $NEW [skip-agent]" || echo 'No commit'
-            git push || echo 'Push skipped'
-          else
-            echo "version=$CURR" >> $GITHUB_OUTPUT
-            echo "No bump needed ($CURR != $PREV)"
-          fi
+          echo "version=$NEW" >> $GITHUB_OUTPUT
+          echo "Bumped version to $NEW"
+          git config user.name 'agent-bot'
+          git config user.email 'agent-bot@users.noreply.github.com'
+          git add extensions/copilot-chief-agent/package.json
+          git commit -m "chore(agent): auto bump version to $NEW [skip-agent]" || echo 'No commit'
+          git push || echo 'Push skipped'
 
       - name: Install dependencies (extension)
         working-directory: extensions/copilot-chief-agent
@@ -71,7 +62,7 @@ jobs:
       - name: Generate changelog section
         id: changelog
         run: |
-          NEW_VER=${{ steps.bump.outputs.version || steps.meta.outputs.current }}
+          NEW_VER=${{ steps.bump.outputs.version }}
           LAST_TAG=${{ steps.meta.outputs.last_tag }}
           RANGE=""
           if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..HEAD"; fi
