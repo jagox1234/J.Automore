@@ -78,14 +78,6 @@ jobs:
           git add extensions/copilot-chief-agent/CHANGELOG.md || true
           git commit -m "docs(agent): update changelog v$NEW_VER [skip-agent]" || echo 'No changelog commit'
           git push || echo 'Skip push'
-
-      - name: Sync repository after internal pushes
-        run: |
-          git fetch origin
-          git checkout main
-          git reset --hard origin/main
-          echo "Post-sync HEAD: $(git rev-parse HEAD)"
-
       - name: Read final version
         id: finalver
         run: |
@@ -103,10 +95,17 @@ jobs:
             git tag "$TAG"
             git push origin "$TAG"
           fi
-
-      - name: Package VSIX
+      - name: Package VSIX (final)
         working-directory: extensions/copilot-chief-agent
-        run: vsce package --no-yarn
+        run: |
+          rm -f *.vsix || true
+          vsce package --no-yarn
+          ls -l *.vsix || true
+
+      - name: Debug list repo root
+        run: |
+          echo 'VSIX en subcarpeta:'
+          ls -l extensions/copilot-chief-agent/*.vsix || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
