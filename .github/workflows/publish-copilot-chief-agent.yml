@@ -74,6 +74,31 @@ jobs:
           git commit -m "docs(agent): update changelog v$NEW_VER [skip-agent]" || echo 'No changelog commit'
           git push || echo 'Skip push'
 
+      - name: Sync repository after internal pushes
+        run: |
+          git fetch origin
+          git checkout main
+          git reset --hard origin/main
+          echo "Post-sync HEAD: $(git rev-parse HEAD)"
+
+      - name: Read final version
+        id: finalver
+        run: |
+          FINAL=$(jq -r .version extensions/copilot-chief-agent/package.json)
+          echo "version=$FINAL" >> $GITHUB_OUTPUT
+          echo "Final version: $FINAL"
+
+      - name: Create tag (if not exists)
+        run: |
+          VER=${{ steps.finalver.outputs.version }}
+          TAG="copilot-chief-agent-v$VER"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG ya existe";
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
       - name: Package VSIX
         working-directory: extensions/copilot-chief-agent
         run: vsce package --no-yarn
@@ -84,17 +109,11 @@ jobs:
           name: copilot-chief-agent-vsix
           path: extensions/copilot-chief-agent/*.vsix
 
-      - name: Create tag (if not exists)
-        run: |
-          VER=${{ steps.bump.outputs.version || steps.meta.outputs.current }}
-          TAG="copilot-chief-agent-v$VER"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then echo "Tag ya existe"; else git tag "$TAG" && git push origin "$TAG"; fi
-
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: copilot-chief-agent-v${{ steps.bump.outputs.version || steps.meta.outputs.current }}
-          name: Copilot Chief Agent v${{ steps.bump.outputs.version || steps.meta.outputs.current }}
+          tag_name: copilot-chief-agent-v${{ steps.finalver.outputs.version }}
+          name: Copilot Chief Agent v${{ steps.finalver.outputs.version }}
           body: ${{ steps.changelog.outputs.notes }}
           files: extensions/copilot-chief-agent/*.vsix
         env:
