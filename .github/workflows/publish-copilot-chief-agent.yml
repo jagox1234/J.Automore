@@ -49,6 +49,12 @@ jobs:
         run: |
           set -e
           CURR=${{ steps.meta.outputs.current }}
+          # Si ya existe un tag para esta versión no volver a bump
+          if git rev-parse "copilot-chief-agent-v$CURR" >/dev/null 2>&1; then
+            echo "Versión $CURR ya etiquetada, saltando bump";
+            echo "version=$CURR" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           IFS='.' read -r MA MI PA <<< "$CURR"
           PA=$((PA+1))
           NEW="$MA.$MI.$PA"
@@ -106,6 +112,17 @@ jobs:
             git tag "$TAG"
             git push origin "$TAG"
           fi
+      - name: Wait for tag propagation
+        run: |
+          set -e
+          VER=${{ steps.finalver.outputs.version }}
+            TAG="copilot-chief-agent-v$VER"
+          echo "Esperando propagación de tag $TAG"
+          for i in {1..10}; do
+            git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG" && echo "Tag visible (intento $i)" && exit 0 || true
+            echo "Tag aún no visible (intento $i), esperando 3s"; sleep 3;
+          done
+          echo "Tag no visible tras espera, continuamos igualmente"
       - name: Package VSIX (final)
         working-directory: extensions/copilot-chief-agent
         run: |
@@ -145,6 +162,42 @@ jobs:
           else
             gh release create "$TAG" extensions/copilot-chief-agent/*.vsix -F release-notes.md -t "Copilot Chief Agent v$VER"
           fi
+      - name: Fallback release creation (API) if missing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VER=${{ steps.finalver.outputs.version }}
+          TAG="copilot-chief-agent-v$VER"
+          echo "Verificando existencia de release $TAG (fallback)"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release presente, no hace falta fallback"; exit 0; fi
+          echo "No se encontró release vía gh, intentando API REST"
+          API="https://api.github.com/repos/${{ github.repository }}/releases"
+          JSON=$(jq -n --arg tag "$TAG" --arg name "Copilot Chief Agent v$VER" --arg body "$(sed 's/"/\\"/g' release-notes.md)" '{ tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false }')
+          curl -s -H "Authorization: Bearer $GITHUB_TOKEN" -H 'Content-Type: application/json' -d "$JSON" "$API" | jq '.id,.tag_name' || echo 'Respuesta sin jq'
+          # Subir asset con upload_url si se creó
+          REL_JSON=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG")
+          UPLOAD_URL=$(echo "$REL_JSON" | jq -r .upload_url | sed 's/{?name,label}//')
+          if [ -n "$UPLOAD_URL" ] && [ "$UPLOAD_URL" != "null" ]; then
+            VSIX=$(ls extensions/copilot-chief-agent/*.vsix | head -n1)
+            echo "Subiendo asset $VSIX via upload_url"
+            curl -s -H "Authorization: Bearer $GITHUB_TOKEN" -H 'Content-Type: application/octet-stream' --data-binary @"$VSIX" "$UPLOAD_URL?name=$(basename "$VSIX")" | jq '.state,.browser_download_url' || echo 'Subida realizada'
+          else
+            echo "No upload_url disponible; fallback incompleto"
+          fi
+      - name: Verify release exists (final)
+        run: |
+          VER=${{ steps.finalver.outputs.version }}
+          TAG="copilot-chief-agent-v$VER"
+          echo "Comprobando release final para $TAG"
+          REL=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG")
+          echo "$REL" | jq '.tag_name,.assets|length'
+          ASSETS=$(echo "$REL" | jq -r '.assets|length') || ASSETS=0
+          if [ "${ASSETS}" = "0" ]; then
+            echo "ERROR: Release sin assets (.vsix no presente)" >&2
+            exit 1
+          fi
+          echo "Release OK con $ASSETS asset(s)"
       - name: Verify release exists (debug)
         run: |
           TAG="copilot-chief-agent-v${{ steps.finalver.outputs.version }}"
