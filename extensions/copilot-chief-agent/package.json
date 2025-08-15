@@ -3,7 +3,7 @@
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
   "version": "0.1.0",
-  "publisher": "j.automore",
+  "publisher": "jautomore",
   "engines": { "vscode": "^1.75.0" },
   "categories": ["Other"],
   "activationEvents": ["onCommand:copilotChief.startAgent"],
@@ -39,5 +39,9 @@
   },
   "dependencies": {
     "openai": "^4.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jagox1234/J.Automore"
   }
 }
