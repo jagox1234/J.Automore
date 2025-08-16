@@ -5,6 +5,7 @@ const _timers = [];
 const _isTest = !!process.env.JEST_WORKER_ID;
 const vscode = require('vscode');
 const { startAgent, agentState, applyMemoryPlan, pauseAgent, resumeAgent, stopAgent, skipCurrentStep, regeneratePlan, manualAdvanceStep } = require('./agent');
+const { processBridge, openBridgeFile } = require('./commandBridge');
 const apiKeyStore = require('./apiKeyStore');
 const { validateEnv } = require('./envValidation');
 const https = require('https');
@@ -59,6 +60,10 @@ function activate(context) {
         vscode.window.showInformationMessage('Forzado ciclo de actualización (si había versión nueva).');
     });
     const statusPanel = vscode.commands.registerCommand('copilotChief.statusPanel', () => openStatusPanel(context));
+    const openRequests = vscode.commands.registerCommand('copilotChief.openRequests', () => {
+        if(!vscode.workspace.workspaceFolders){ return vscode.window.showWarningMessage('Abre una carpeta para usar el bridge.'); }
+        openBridgeFile(vscode.workspace.workspaceFolders[0].uri.fsPath);
+    });
     const testKeyCmd = vscode.commands.registerCommand('copilotChief.testApiKey', async () => {
         const k = await apiKeyStore.getApiKey();
         if(!k){ vscode.window.showWarningMessage('No hay API Key configurada'); return; }
@@ -135,7 +140,7 @@ function activate(context) {
     const regenCmd = vscode.commands.registerCommand('copilotChief.regeneratePlan', () => regeneratePlan());
     const nextCmd = vscode.commands.registerCommand('copilotChief.nextStep', () => manualAdvanceStep());
 
-    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, output);
+    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, output);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeos de actualización omitidos en test para no dejar handles abiertos
@@ -187,6 +192,21 @@ function activate(context) {
             }
     } catch { output.appendLine('[env] Error validando entorno'); }
     })();
+
+    // Command Bridge polling
+    if(!_isTest && vscode.workspace.workspaceFolders){
+        try {
+            const cfg = vscode.workspace.getConfiguration('copilotChief');
+            if(cfg.get('enableCommandBridge')){
+                const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
+                const interval = Math.max(5, parseInt(cfg.get('commandPollingSeconds')||15,10));
+                const run = () => processBridge(root, output);
+                run();
+                _timers.push(setInterval(run, interval*1000));
+                output.appendLine('[bridge] Activado polling cada '+interval+'s');
+            }
+        } catch(e){ output.appendLine('[bridge] error iniciando bridge: '+e.message); }
+    }
 }
 
 function scheduleUpdateChecks(cfg, output) {
