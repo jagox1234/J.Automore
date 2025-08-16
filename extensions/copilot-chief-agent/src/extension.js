@@ -425,6 +425,11 @@ function checkForUpdate(output, opts={}) {
                     const useFallback = !asset;
                     const handleVersion = (assetFound, tagFound) => {
                         const latestVer = (/copilot-chief-agent-(\d+\.\d+\.\d+)\.vsix/.exec(assetFound.name))?.[1] || tagFound.replace(/^.*v/, '');
+                        // Si la versión local es mayor que la remota (p.ej. bump commit antes de que pipeline publique release), saltar.
+                        if (isNewer(current, latestVer)) { // local > remote
+                            output.appendLine(`[update] Local (${current}) > remote (${latestVer}) aún sin release: esperando pipeline.`);
+                            return resolve();
+                        }
                         output.appendLine(`[update] Versión local ${current} - remota ${latestVer}`);
                         if (assetFound && (opts.force || (latestVer && isNewer(latestVer, current)))) {
                             if (opts.silentInstall) {
