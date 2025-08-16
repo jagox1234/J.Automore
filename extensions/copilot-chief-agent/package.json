@@ -2,7 +2,7 @@
   "name": "copilot-chief-agent",
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
-  "version": "0.1.58",
+  "version": "0.1.59",
   "publisher": "jautomore",
   "engines": {
     "vscode": "^1.75.0"
@@ -23,7 +23,7 @@
         }
       ]
     },
-  "commands": [
+    "commands": [
       {
         "command": "copilotChief.startAgent",
         "title": "Copilot Chief: Iniciar Agente"
@@ -111,8 +111,7 @@
       {
         "command": "copilotChief.exportLiveFeed",
         "title": "Copilot Chief: Exportar Feed en Vivo"
-      }
-      ,
+      },
       {
         "command": "copilotChief.selfTest",
         "title": "Copilot Chief: Auto Test (Demo + Export + Snapshot)"
