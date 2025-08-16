@@ -938,3 +938,25 @@
 ## v0.1.52 - 2025-08-16
 * chore(lint): sanitize sin escapes innecesarios (b7f2927)
 
+## v0.1.53 - 2025-08-16
+* feat(diagnostics): verbose instrumentation, snapshot command, coverage threshold adjust (v0.1.52) (e27e87f)
+* chore(agent): set version 0.1.52 (post-release bump) (a6de41e)
+* chore(lint): sanitize sin escapes innecesarios (b7f2927)
+* feat(ui): status bar botones consola actividad y pruebas (v0.1.51) (d5a7f8c)
+* feat(test-console): doble interaccion A-B (v0.1.50) (363f8ea)
+* chore(agent): set version 0.1.50 (post-release bump) (642acca)
+* feat(console): actividad bridge + filtro listener comentarios (v0.1.49) (6288448)
+* chore(agent): set version 0.1.49 (post-release bump) (38624d4)
+* feat(command-bridge): notifications + config (v0.1.48) (e631347)
+* chore(agent): set version 0.1.48 (post-release bump) (c2ea834)
+* docs(changelog): add entries for 0.1.41-0.1.46 (b31c4bd)
+* chore(agent): set version 0.1.47 (post-release bump) (6bfaaca)
+* feat(command-bridge): pruning entries + config bump 0.1.46 (422aef9)
+* chore(agent): set version 0.1.46 (post-release bump) (08b0dc5)
+* feat(command-bridge): cooldown, timeout configurable, concurrencia y max lines (e8d06ee)
+* chore(agent): set version 0.1.42 (post-release bump) (1adb9c8)
+* feat(command-bridge): puente de comandos con polling y tests (b2c816b)
+* chore(agent): set version 0.1.41 (post-release bump) (ea59fb1)
+* feat(ui): mostrar siempre control play/pause en status bar (a12ce2e)
+* chore(agent): set version 0.1.40 (post-release bump) (03978b4)
+
