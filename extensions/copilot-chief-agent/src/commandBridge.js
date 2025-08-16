@@ -55,6 +55,24 @@ async function processBridge(root, output){
   if(!cfg.get('enableCommandBridge')) return;
   const reqs = loadRequests(root);
   let changed = false;
+  // Archive / prune old entries
+  try {
+    const maxAgeDays = parseInt(cfg.get('commandArchiveMaxAgeDays')||0,10);
+    if(maxAgeDays>0){
+      const cutoff = Date.now() - maxAgeDays*24*60*60*1000;
+      const before = reqs.length;
+      for(let i=reqs.length-1;i>=0;i--){
+        const r = reqs[i];
+        if(r.status && r.status!=='pending' && r.updatedAt){
+          const ts = Date.parse(r.updatedAt || r.createdAt || '');
+          if(!isNaN(ts) && ts < cutoff){
+            reqs.splice(i,1); changed=true;
+          }
+        }
+      }
+      if(before !== reqs.length){ output.appendLine('[bridge] purged '+(before-reqs.length)+' old entries'); }
+    }
+  } catch{}
   const maxConcurrent = parseInt(cfg.get('maxConcurrentBridgeCommands')||1,10);
   const runningCount = reqs.filter(r=>r.status==='running').length;
   const timeoutMs = Math.max(1, parseInt(cfg.get('commandTimeoutSeconds')||60,10))*1000;

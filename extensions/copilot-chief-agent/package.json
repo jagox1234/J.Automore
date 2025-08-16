@@ -159,6 +159,11 @@
           "type": "number",
           "default": 5,
           "description": "Número máximo de líneas del resultado guardadas (últimas N)."
+        },
+        "copilotChief.commandArchiveMaxAgeDays": {
+          "type": "number",
+          "default": 3,
+          "description": "Días después de los cuales una entry (done/error/rejected) se elimina del requests.json para evitar crecimiento infinito (0=desactiva)."
         }
       }
     }

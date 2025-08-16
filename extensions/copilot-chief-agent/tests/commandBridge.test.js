@@ -12,6 +12,7 @@ jest.mock('vscode', () => ({
     if(k==='commandCooldownSeconds') return 120; // large to test cooldown rejection
     if(k==='maxConcurrentBridgeCommands') return 1;
     if(k==='commandResultMaxLines') return 3;
+    if(k==='commandArchiveMaxAgeDays') return 0; // default no prune in most tests
     return undefined; } }), openTextDocument: jest.fn().mockResolvedValue({}), showTextDocument: jest.fn(), workspaceFolders:[{ uri:{ fsPath: process.cwd() } }] },
   window: { showWarningMessage: jest.fn(), showInformationMessage: jest.fn(), showTextDocument: jest.fn() }
 }));
@@ -146,5 +147,33 @@ describe('commandBridge basic flow', () => {
       const lines = r13.result.split(/\r?\n/);
       expect(lines.length).toBeLessThanOrEqual(3);
     }
+  });
+
+  test('purge elimina entries antiguas (forzado)', async () => {
+    // Re-mock config for this test to enable prune
+    jest.resetModules();
+    jest.doMock('vscode', () => ({
+      workspace: { getConfiguration: () => ({ get: (k)=>{
+        if(k==='enableCommandBridge') return true;
+        if(k==='allowedCommands') return ['^echo'];
+        if(k==='blockedCommands') return [];
+        if(k==='commandArchiveMaxAgeDays') return 1; // prune >1 día
+        if(k==='commandResultMaxLines') return 2;
+        return undefined; } }), workspaceFolders:[{ uri:{ fsPath: process.cwd() } }] },
+      window: { showWarningMessage: jest.fn(), showInformationMessage: jest.fn(), showTextDocument: jest.fn(), createOutputChannel: ()=>({appendLine:()=>{}}) }
+    }));
+    const { processBridge } = require('../src/commandBridge');
+    const root = fs.mkdtempSync(path.join(os.tmpdir(),'bridge-'));
+    const file = path.join(root,'.copilot-chief','requests.json');
+    fs.mkdirSync(path.dirname(file), { recursive:true });
+    const oldDate = new Date(Date.now() - 5*24*60*60*1000).toISOString();
+    fs.writeFileSync(file, JSON.stringify([
+      { id:'old', command:'echo viejo', status:'done', result:'ok', createdAt: oldDate, updatedAt: oldDate },
+      { id:'new', command:'echo nuevo', status:'pending', createdAt:new Date().toISOString() }
+    ], null, 2));
+    const output = { appendLine: ()=>{} };
+    await processBridge(root, output);
+    const updated = JSON.parse(fs.readFileSync(file,'utf8'));
+    expect(updated.find(r=>r.id==='old')).toBeFalsy(); // purged
   });
 });
