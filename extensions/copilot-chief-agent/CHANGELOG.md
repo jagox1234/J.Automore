@@ -1,3 +1,19 @@
+## v0.1.57 - 2025-08-16
+### Added
+* Vista de Pasos (TreeView `Copilot Chief Pasos`) mostrando progreso y duración.
+* Exportación del Feed en Vivo a Markdown (`Copilot Chief: Exportar Feed en Vivo`).
+* Modo Demo (`demoMode`) que simula pasos sin llamar a OpenAI.
+* ETA estimada en la barra de estado basada en media móvil de duraciones de pasos.
+* Sonidos opcionales: beep al completar paso (`playSoundOnStep`) y al error del bridge (`playSoundOnError`).
+* Nuevo entrypoint limpio `extension-main.js` (se deja `extension.js` legado sin uso como referencia temporal).
+
+### Changed
+* Integrado polling del Command Bridge en entrypoint limpio con envío a Feed.
+* Sanitizado y simplificado HTML del feed (menos escapes, rendimiento mejorado).
+
+### Internal
+* Refactor para aislar corrupción previa del archivo principal y estabilizar activación.
+
 ## v0.1.56 - 2025-08-16
 ### Added
 * Config `liveFeedAutoOpen` (default true) para abrir feed automáticamente al iniciar agente.

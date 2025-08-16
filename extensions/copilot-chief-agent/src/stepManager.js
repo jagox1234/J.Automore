@@ -8,7 +8,12 @@ function nextStep(steps, completed) {
 function markStepComplete(workspaceRoot, step) {
   const mem = loadMemory(workspaceRoot);
   mem.completed = mem.completed || [];
-  if (!mem.completed.includes(step)) mem.completed.push(step);
+  mem.stepMeta = mem.stepMeta || {}; // { step: { startedAt, completedAt } }
+  if (!mem.completed.includes(step)) {
+    mem.completed.push(step);
+    if(!mem.stepMeta[step]) mem.stepMeta[step] = { startedAt: new Date().toISOString() };
+    mem.stepMeta[step].completedAt = new Date().toISOString();
+  }
   saveMemory(workspaceRoot, mem); // autosave triggered
 }
 

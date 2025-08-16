@@ -13,9 +13,17 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "main": "./src/extension.js",
+  "main": "./src/extension-main.js",
   "contributes": {
-    "commands": [
+    "views": {
+      "explorer": [
+        {
+          "id": "copilotChiefStepsView",
+          "name": "Copilot Chief Pasos"
+        }
+      ]
+    },
+  "commands": [
       {
         "command": "copilotChief.startAgent",
         "title": "Copilot Chief: Iniciar Agente"
@@ -99,6 +107,10 @@
       {
         "command": "copilotChief.quickStatus",
         "title": "Copilot Chief: Estado Rápido"
+      },
+      {
+        "command": "copilotChief.exportLiveFeed",
+        "title": "Copilot Chief: Exportar Feed en Vivo"
       }
     ],
     "configuration": {
@@ -221,6 +233,21 @@
           "type": "boolean",
           "default": true,
           "description": "Muestra CodeLens sobre líneas de pasos para marcar completado o saltar."
+        },
+        "copilotChief.demoMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Modo demo: simula eventos sin llamar a OpenAI (no modifica archivos)."
+        },
+        "copilotChief.playSoundOnStep": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reproduce un beep al completar cada paso (requiere soporte de terminal)."
+        },
+        "copilotChief.playSoundOnError": {
+          "type": "boolean",
+          "default": false,
+          "description": "Beep cuando un comando del bridge falla."
         }
       }
     }
