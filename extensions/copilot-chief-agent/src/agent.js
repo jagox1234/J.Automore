@@ -1,5 +1,5 @@
 const vscode = require('vscode'); // chore: trigger release workflow
-// CI trigger: noop cambio para generar nueva release automática.
+// CI trigger: noop cambio para generar nueva release automática (bump attempt 2).
 const { scanProject } = require('./projectScanner');
 const { askChatGPT } = require('./openaiClient');
 const { saveMemory, loadMemory } = require('./memoryManager');
