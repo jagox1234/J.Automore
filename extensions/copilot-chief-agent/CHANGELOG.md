@@ -928,3 +928,6 @@
 ## v0.1.50 - 2025-08-16
 * feat(console): actividad bridge + filtro listener comentarios (v0.1.49) (6288448)
 
+## v0.1.52 - 2025-08-16
+* chore(lint): sanitize sin escapes innecesarios (b7f2927)
+
