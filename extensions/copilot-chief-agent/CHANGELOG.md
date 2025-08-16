@@ -858,3 +858,6 @@
 ## v0.1.41 - 2025-08-16
 * feat(ui): mostrar siempre control play/pause en status bar (a12ce2e)
 
+## v0.1.42 - 2025-08-16
+* feat(command-bridge): puente de comandos con polling y tests (b2c816b)
+
