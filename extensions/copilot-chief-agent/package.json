@@ -281,7 +281,8 @@
     "package": "vsce package || echo 'Instala vsce si falta'",
     "lint": "eslint src --max-warnings=0 || exit 1",
     "test": "jest --runInBand",
-    "verify": "npm run lint && npm test -- --ci"
+  "verify": "npm run lint && npm test -- --ci",
+  "update:latest": "node scripts/force-install-latest.js"
   },
   "keywords": [
     "copilot",
