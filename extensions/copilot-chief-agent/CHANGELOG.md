@@ -1016,3 +1016,7 @@
 ## v0.1.63 - 2025-08-16
 * feat(update): add force-install-latest script (7bdbf9f)
 
+## v0.1.64 - 2025-08-16
+* chore: normalize gpt-test (post install commands) (e23dbc1)
+* feat(update): add installLatestRelease & installLatestPrerelease commands (12334fc)
+
