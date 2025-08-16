@@ -7,7 +7,9 @@ const { openBridgeFile, processBridge } = require('./commandBridge');
 const apiKeyStore = require('./apiKeyStore');
 const { initDiagnostics, logDiag, toggleDiagnostics, openDiagnosticsFile } = require('./diagnostics');
 const { StepsTreeDataProvider } = require('./stepsView');
-const https = require('https');
+// (Removed direct https import; using dynamic require in fetchJson)
+const cp = require('child_process');
+let _updateInterval=null;
 
 const _timers = [];
 const _isTest = !!process.env.JEST_WORKER_ID;
@@ -24,8 +26,8 @@ function activate(context){
     vscode.commands.registerCommand('copilotChief.quickStatus', ()=>{ try{ const st=agentState(); const done=st.total? (st.total-st.remaining):0; const msg=`Estado: ${st.running?(st.paused?'Pausado':'En ejecución'):(st.planning?'Planificando':'Inactivo')} • Pasos ${done}/${st.total||'—'} • Objetivo: ${st.objective||'—'}`; vscode.window.showInformationMessage(msg);}catch{ vscode.window.showWarningMessage('Estado no disponible'); } }),
 		vscode.commands.registerCommand('copilotChief.liveFeed', openFeed),
 		vscode.commands.registerCommand('copilotChief.exportLiveFeed', exportFeed),
-    vscode.commands.registerCommand('copilotChief.checkUpdates', ()=>runUpdateCheck(false)),
-    vscode.commands.registerCommand('copilotChief.forceUpdateNow', ()=>runUpdateCheck(true)),
+    vscode.commands.registerCommand('copilotChief.checkUpdates', ()=>checkForUpdates({manual:true, force:false})),
+    vscode.commands.registerCommand('copilotChief.forceUpdateNow', ()=>checkForUpdates({manual:true, force:true, forceInstall:true})),
     vscode.commands.registerCommand('copilotChief.selfTest', ()=>autoSelfTest(output)),
 		vscode.commands.registerCommand('copilotChief.pauseAgent', ()=>pauseAgent()),
 		vscode.commands.registerCommand('copilotChief.resumeAgent', ()=>resumeAgent()),
@@ -51,6 +53,9 @@ function activate(context){
     setTimeout(poll, 3000);
   }
 	initStatusBar(context);
+
+  // Schedule automatic update checks based on settings
+  try{ scheduleAutoUpdateChecks(context); }catch{}
 	vscode.languages.registerCodeLensProvider({pattern:'**/*.{js,ts,jsx,tsx}'},{ provideCodeLenses(doc){ const cfg=vscode.workspace.getConfiguration('copilotChief'); if(!cfg.get('showCodeLens')) return []; const lenses=[]; const re=/Copilot Chief Paso: (.+)/g; for(let i=0;i<doc.lineCount;i++){ const line=doc.lineAt(i).text; let m=re.exec(line); if(m){ lenses.push(new vscode.CodeLens(new vscode.Range(i,0,i,line.length),{title:'✔ Completar',command:'copilotChief.skipCurrentStep'})); lenses.push(new vscode.CodeLens(new vscode.Range(i,0,i,line.length),{title:'↷ Regenerar Plan',command:'copilotChief.regeneratePlan'})); } re.lastIndex=0;} return lenses; } });
 }
 
@@ -110,31 +115,72 @@ function runDemo(objective, root, output){ if(_demoRunning) return; _demoRunning
 function snapshot(output){ try{ if(!vscode.workspace.workspaceFolders) return; const root=vscode.workspace.workspaceFolders[0].uri.fsPath; const memPath=path.join(root,'.copilot-chief','state.json'); let memoryRaw='',memoryJson=null; if(fs.existsSync(memPath)){ memoryRaw=fs.readFileSync(memPath,'utf8'); try{memoryJson=JSON.parse(memoryRaw);}catch{} } const diagFile=path.join(root,'.copilot-chief','diagnostics.log'); let diagnosticsTail=''; if(fs.existsSync(diagFile)){ const lines=fs.readFileSync(diagFile,'utf8').trim().split(/\r?\n/); diagnosticsTail=lines.slice(-200).join('\n'); } const bridgeFile=path.join(root,'.copilot-chief','requests.json'); let bridgeRaw=''; if(fs.existsSync(bridgeFile)){ bridgeRaw=fs.readFileSync(bridgeFile,'utf8'); } const st=agentState(); const snap={ ts:new Date().toISOString(), state:st, memory:memoryJson, memoryRawLength:memoryRaw.length, diagnosticsTailLines:(diagnosticsTail.match(/\n/g)||[]).length+(diagnosticsTail?1:0), bridgeRaw }; const outDir=path.join(root,'.copilot-chief','snapshots'); fs.mkdirSync(outDir,{recursive:true}); const file=path.join(outDir,'snapshot-'+new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)+'.json'); fs.writeFileSync(file,JSON.stringify(snap,null,2),'utf8'); vscode.window.showInformationMessage('Snapshot creado: '+path.basename(file)); vscode.workspace.openTextDocument(file).then(d=>vscode.window.showTextDocument(d,{preview:false})); }catch(e){ vscode.window.showErrorMessage('Error snapshot: '+e.message);} }
 
 // Update checker (GitHub Releases simple fetch)
-function runUpdateCheck(force){
+async function checkForUpdates(opts={}){
+  const { manual=false, force=false, forceInstall=false }=opts;
+  const cfg=vscode.workspace.getConfiguration('copilotChief');
+  if(!manual && !cfg.get('autoUpdateCheck')) return;
+  const owner='jagox1234'; const repo='J.Automore';
+  let current='?';
+  try{ current=require('../package.json').version; }catch{}
+  let releaseJson=null;
   try{
-    const pkg=require('../package.json');
-    const current=pkg.version;
-    const owner='jagox1234';
-    const repo='J.Automore';
-    const url=`https://raw.githubusercontent.com/${owner}/${repo}/main/extensions/copilot-chief-agent/package.json`;
-    https.get(url,res=>{
-      let data='';
-      res.on('data',d=>data+=d);
-      res.on('end',()=>{
-        try{
-          const remote=JSON.parse(data).version;
-          if(!remote){ vscode.window.showWarningMessage('No se pudo leer versión remota'); return; }
-          if(remote===current){ if(force) vscode.window.showInformationMessage('Ya estás en la última versión '+current); else vscode.window.showInformationMessage('Copilot Chief actualizado ( '+current+' ).'); return; }
-          const msg=`Versión nueva disponible: ${remote} (actual ${current})`;
-          if(force){
-            vscode.window.showInformationMessage(msg+' — descarga manual: git pull');
-          } else {
-            vscode.window.showInformationMessage(msg+' — Usa git pull para actualizar.');
-          }
-        }catch(e){ vscode.window.showErrorMessage('Error parse update: '+e.message); }
-      });
-    }).on('error',err=>vscode.window.showErrorMessage('Error update HTTP: '+err.message));
-  }catch(e){ vscode.window.showErrorMessage('Update check error: '+e.message); }
+    releaseJson=await fetchJson(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);
+  }catch(e){ if(manual) vscode.window.showErrorMessage('Error consultando releases: '+e.message); return; }
+  if(!releaseJson || !releaseJson.tag_name){ if(manual) vscode.window.showWarningMessage('No se pudo obtener release tag'); return; }
+  const remote=releaseJson.tag_name.replace(/^v/,'');
+  if(remote===current && !force){ if(manual) vscode.window.showInformationMessage('Ya estás en la última versión '+current); return; }
+  // Diff (simple): show first lines of body
+  const body=(releaseJson.body||'').split('\n').slice(0,15).join('\n');
+  const silent=cfg.get('autoUpdateSilent');
+  if(!forceInstall && !silent && !manual){
+    // only notify silently; user can trigger manual command later
+    vscode.window.showInformationMessage(`[Copilot Chief] Nueva versión ${remote} disponible (actual ${current}). Usa comando Buscar Actualizaciones para instalar.`);
+    return;
+  }
+  if(!forceInstall && !silent && manual){
+    const pick=await vscode.window.showInformationMessage(`Nueva versión ${remote} (actual ${current}). ¿Instalar ahora?`, 'Instalar', 'Ver Cambios', 'Cancelar');
+    if(pick==='Ver Cambios'){ await showTempDoc('Copilot Chief - Cambios', body||'Sin changelog'); }
+    if(pick!=='Instalar') return;
+  }
+  if(silent || forceInstall || manual){
+    try{ await attemptGitPullUpdate(); vscode.window.showInformationMessage('Actualizado (git pull). Reinicia la ventana si es necesario.'); }
+    catch(e){ vscode.window.showErrorMessage('Fallo al actualizar: '+e.message); }
+  }
+}
+
+function scheduleAutoUpdateChecks(context){
+  const cfg=vscode.workspace.getConfiguration('copilotChief');
+  if(!cfg.get('autoUpdateCheck')) return;
+  const minutes=Math.max(1, cfg.get('updatePollMinutes')||15);
+  // first check shortly after startup
+  setTimeout(()=>checkForUpdates({manual:false}), 8000);
+  _updateInterval=setInterval(()=>checkForUpdates({manual:false}), minutes*60000);
+  context.subscriptions.push({ dispose(){ try{ clearInterval(_updateInterval);}catch{} } });
+}
+
+function fetchJson(url){
+  return new Promise((resolve,reject)=>{
+    const headers={ 'User-Agent':'copilot-chief-agent', 'Accept':'application/vnd.github+json' };
+    const lib = url.startsWith('https:')? require('https'): require('http');
+    lib.get(url,{ headers }, res=>{
+      if(res.statusCode && res.statusCode>=300){ return reject(new Error('HTTP '+res.statusCode)); }
+      let data=''; res.on('data',d=>data+=d); res.on('end',()=>{ try{ resolve(JSON.parse(data)); }catch(e){ reject(e);} });
+    }).on('error',reject);
+  });
+}
+
+async function attemptGitPullUpdate(){
+  return new Promise((resolve,reject)=>{
+    const cwd=vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if(!cwd) return reject(new Error('No workspace')); 
+    cp.exec('git pull', { cwd }, (err,stdout,stderr)=>{ if(err) return reject(new Error(stderr.trim()||err.message)); resolve(stdout.trim()); });
+  });
+}
+
+async function showTempDoc(title, text){
+  const doc=await vscode.workspace.openTextDocument({ content:text, language:'markdown' });
+  await vscode.window.showTextDocument(doc,{ preview:true });
+  vscode.window.showInformationMessage(title);
 }
 
 // Automated self-test: ensures demo mode run, export feed, snapshot
