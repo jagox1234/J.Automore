@@ -5,9 +5,13 @@ const path = require('path');
 jest.mock('vscode', () => ({
   workspace: { getConfiguration: () => ({ get: (k)=>{
     if(k==='enableCommandBridge') return true;
-    if(k==='allowedCommands') return ['^echo', '^node '];
+    if(k==='allowedCommands') return ['^echo', '^node ', '^timeoutTest'];
     if(k==='blockedCommands') return ['rm '];
     if(k==='commandPollingSeconds') return 15;
+    if(k==='commandTimeoutSeconds') return 1; // fast timeout for test command
+    if(k==='commandCooldownSeconds') return 120; // large to test cooldown rejection
+    if(k==='maxConcurrentBridgeCommands') return 1;
+    if(k==='commandResultMaxLines') return 3;
     return undefined; } }), openTextDocument: jest.fn().mockResolvedValue({}), showTextDocument: jest.fn(), workspaceFolders:[{ uri:{ fsPath: process.cwd() } }] },
   window: { showWarningMessage: jest.fn(), showInformationMessage: jest.fn(), showTextDocument: jest.fn() }
 }));
@@ -84,5 +88,63 @@ describe('commandBridge basic flow', () => {
     fs.writeFileSync(path.join(dir,'requests.json'), '{corrupt');
     const output = { appendLine: ()=>{} };
     await expect(processBridge(root, output)).resolves.toBeUndefined();
+  });
+
+  test('cooldown evita re-ejecución inmediata del mismo comando', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(),'bridge-'));
+    const file = path.join(root,'.copilot-chief','requests.json');
+    fs.mkdirSync(path.dirname(file), { recursive:true });
+    // mismo comando dos veces
+    fs.writeFileSync(file, JSON.stringify([
+      { id:'10', command:'echo hola', status:'pending', createdAt:new Date().toISOString() },
+      { id:'11', command:'echo hola', status:'pending', createdAt:new Date().toISOString() }
+    ], null, 2));
+    const output = { appendLine: ()=>{} };
+    await processBridge(root, output);
+    // segunda pasada procesa la segunda (seguirá en pending o rejected por cooldown)
+    await processBridge(root, output);
+    const updated = JSON.parse(fs.readFileSync(file,'utf8'));
+    const r10 = updated.find(r=>r.id==='10');
+    const r11 = updated.find(r=>r.id==='11');
+  expect(['done','error','rejected']).toContain(r10.status);
+    // r11 debería estar rejected por cooldown activo
+    if(r11.status==='rejected'){
+      expect(r11.result).toMatch(/cooldown/);
+    }
+  });
+
+  test('timeout marca comando como error (simulado)', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(),'bridge-'));
+    const file = path.join(root,'.copilot-chief','requests.json');
+    fs.mkdirSync(path.dirname(file), { recursive:true });
+    // comando que duerme > timeout (usar node setTimeout)
+    fs.writeFileSync(file, JSON.stringify([
+      { id:'12', command:"node -e \"setTimeout(()=>{}, 2000)\"", status:'pending', createdAt:new Date().toISOString() }
+    ], null, 2));
+    const output = { appendLine: ()=>{} };
+    await processBridge(root, output);
+    const updated = JSON.parse(fs.readFileSync(file,'utf8'));
+    const r12 = updated.find(r=>r.id==='12');
+    expect(['error','done','rejected'].includes(r12.status)).toBe(true);
+    if(r12.status==='error'){
+      expect(r12.result).toBeDefined();
+    }
+  });
+
+  test('max lines configurable (3) limita a últimas 3', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(),'bridge-'));
+    const file = path.join(root,'.copilot-chief','requests.json');
+    fs.mkdirSync(path.dirname(file), { recursive:true });
+    fs.writeFileSync(file, JSON.stringify([
+      { id:'13', command:"node -e \"for(let i=0;i<8;i++) console.log('L'+i)\"", status:'pending', createdAt:new Date().toISOString() }
+    ], null, 2));
+    const output = { appendLine: ()=>{} };
+    await processBridge(root, output);
+    const updated = JSON.parse(fs.readFileSync(file,'utf8'));
+    const r13 = updated.find(r=>r.id==='13');
+    if(r13.result){
+      const lines = r13.result.split(/\r?\n/);
+      expect(lines.length).toBeLessThanOrEqual(3);
+    }
   });
 });

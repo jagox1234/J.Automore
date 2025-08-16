@@ -28,40 +28,66 @@ function sanitizeCommand(cmd){
   return cmd.trim();
 }
 
-function decide(request, cfg){
+function decide(request, cfg, context){
   const blocked = (cfg.get('blockedCommands')||[]).some(b => request.command.includes(b));
   if(blocked) return { decision:'cancel', reason:'blocked pattern' };
   const allowedPatterns = cfg.get('allowedCommands')||[];
   const ok = allowedPatterns.some(rx => { try { return new RegExp(rx).test(request.command); } catch { return false; } });
   if(!ok) return { decision:'cancel', reason:'no whitelist match' };
+  // Cooldown check (exact same command executed recently)
+  try {
+    const cooldown = parseInt(cfg.get('commandCooldownSeconds')||0,10);
+    if(cooldown>0 && context && context.recent){
+      const prev = context.recent[request.command];
+      if(prev && (Date.now() - prev < cooldown*1000)){
+        return { decision:'cancel', reason:'cooldown active' };
+      }
+    }
+  } catch{}
   return { decision:'confirm' };
 }
+
+// Simple in-memory context to track recent executions (not persisted across reloads)
+const _bridgeContext = { recent:{} };
 
 async function processBridge(root, output){
   const cfg = vscode.workspace.getConfiguration('copilotChief');
   if(!cfg.get('enableCommandBridge')) return;
   const reqs = loadRequests(root);
   let changed = false;
+  const maxConcurrent = parseInt(cfg.get('maxConcurrentBridgeCommands')||1,10);
+  const runningCount = reqs.filter(r=>r.status==='running').length;
+  const timeoutMs = Math.max(1, parseInt(cfg.get('commandTimeoutSeconds')||60,10))*1000;
   for(const req of reqs){
     if(req.status === 'pending'){
+      if(runningCount >= maxConcurrent){
+        continue; // defer until next poll
+      }
       const sanitized = sanitizeCommand(req.command);
       if(!sanitized){
         req.status = 'rejected'; req.decision='cancel'; req.result='command rejected (unsafe characters)'; req.updatedAt = new Date().toISOString(); changed=true; continue;
       }
-      const dec = decide(req, cfg);
+      const dec = decide(req, cfg, _bridgeContext);
       if(dec.decision === 'cancel'){
         req.status='rejected'; req.decision='cancel'; req.result=dec.reason; req.updatedAt=new Date().toISOString(); changed=true; continue;
       }
       // confirm and execute
-      req.status='running'; req.decision='confirm'; req.updatedAt=new Date().toISOString(); changed=true; saveRequests(root, reqs);
+      req.status='running'; req.decision='confirm'; req.startedAt=new Date().toISOString(); req.updatedAt=req.startedAt; changed=true; saveRequests(root, reqs);
       try {
         output.appendLine('[bridge] ejecutando: '+sanitized);
         const exec = require('child_process').exec;
         await new Promise((resolve)=>{
-          exec(sanitized, { cwd: root, timeout: 60000 }, (err, stdout, stderr)=>{
-            if(err){ req.status='error'; req.result=stderr.trim()||err.message; }
-            else { req.status='done'; req.result = summarize(stdout); }
-            req.updatedAt=new Date().toISOString();
+          exec(sanitized, { cwd: root, timeout: timeoutMs }, (err, stdout, stderr)=>{
+            if(err){
+              const timedOut = err.killed && /ETIMEDOUT|timeout/i.test(err.message);
+              req.status='error'; req.result = (stderr && stderr.trim()) || (timedOut ? 'timeout' : err.message);
+            } else {
+              req.status='done'; req.result = summarize(stdout, cfg);
+              // record recent execution timestamp for cooldown
+              _bridgeContext.recent[req.command] = Date.now();
+            }
+            req.finishedAt=new Date().toISOString();
+            req.updatedAt=req.finishedAt;
             changed=true; resolve();
           });
         });
@@ -71,11 +97,12 @@ async function processBridge(root, output){
   if(changed) saveRequests(root, reqs);
 }
 
-function summarize(text){
+function summarize(text, cfg){
+  const maxLines = parseInt(cfg?.get?.('commandResultMaxLines') || 5, 10);
   const lines = (text||'').split(/\r?\n/).filter(Boolean);
   if(!lines.length) return 'ok (no output)';
-  if(lines.length<=5) return lines.join('\n');
-  return lines.slice(-5).join('\n');
+  if(lines.length<=maxLines) return lines.join('\n');
+  return lines.slice(-maxLines).join('\n');
 }
 
 function openBridgeFile(root){

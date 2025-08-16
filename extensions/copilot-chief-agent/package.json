@@ -139,6 +139,26 @@
             "reboot"
           ],
           "description": "Patrones (substring) bloqueados siempre."
+        },
+        "copilotChief.commandTimeoutSeconds": {
+          "type": "number",
+          "default": 60,
+          "description": "Tiempo máximo (s) por comando del bridge antes de marcar timeout."
+        },
+        "copilotChief.commandCooldownSeconds": {
+          "type": "number",
+          "default": 120,
+          "description": "Cooldown mínimo (s) antes de volver a ejecutar exactamente el mismo comando."
+        },
+        "copilotChief.maxConcurrentBridgeCommands": {
+          "type": "number",
+          "default": 1,
+          "description": "Máximo de comandos simultáneos (running) permitidos."
+        },
+        "copilotChief.commandResultMaxLines": {
+          "type": "number",
+          "default": 5,
+          "description": "Número máximo de líneas del resultado guardadas (últimas N)."
         }
       }
     }
