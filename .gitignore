@@ -9,4 +9,5 @@ dist/
 coverage/
 *.log
 .copilot-chief-memory.json
+.copilot-chief/
 extensions/copilot-chief-agent/*.vsix

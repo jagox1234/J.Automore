@@ -125,9 +125,9 @@ function activate(context) {
     initStatusBars(context);
     // Watch memory file for external edits to sync steps/objective
     if (vscode.workspace.workspaceFolders) {
-        const memFile = vscode.workspace.workspaceFolders[0].uri.fsPath + '/.copilot-chief-memory.json';
+        const memFile = vscode.workspace.workspaceFolders[0].uri.fsPath + '/.copilot-chief/state.json';
         try {
-            const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.workspace.workspaceFolders[0], '.copilot-chief-memory.json'));
+            const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.workspace.workspaceFolders[0], '.copilot-chief/state.json'));
             const reload = (uri) => {
                 const fs = require('fs');
                 try {
@@ -181,7 +181,7 @@ function openStatusPanel(context) {
                 try {
                         const st = agentState ? agentState() : { running:false, planning:false };
             let metaFeedback = ''; let lastSync='';
-            try { const fs = require('fs'); const path = require('path'); const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath; if(root){ const memPath = path.join(root,'.copilot-chief-memory.json'); if(fs.existsSync(memPath)){ const parsed = JSON.parse(fs.readFileSync(memPath,'utf8')); metaFeedback = parsed?.meta?.feedback || ''; lastSync = parsed?.meta?.lastSync || ''; } } } catch {}
+                        try { const fs = require('fs'); const path = require('path'); const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath; if(root){ const memPath = path.join(root,'.copilot-chief','state.json'); if(fs.existsSync(memPath)){ const parsed = JSON.parse(fs.readFileSync(memPath,'utf8')); metaFeedback = parsed?.meta?.feedback || ''; lastSync = parsed?.meta?.lastSync || ''; } } } catch {}
                         const color = st.running ? '#16a34a' : (st.planning ? '#f59e0b' : '#6b7280');
                         const statusText = st.running ? 'En ejecución' : (st.planning ? 'Planificando' : 'Inactivo');
                         const remaining = (st.total>=0 && st.remaining>=0) ? `${st.total-st.remaining}/${st.total}` : '—';

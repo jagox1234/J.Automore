@@ -1,17 +1,15 @@
-const fs = require('fs');
-const path = require('path');
+// (fs, path) no longer needed after memory manager integration
 
-const _memoryManager = require('./memoryManager'); // import kept for future use
+const { loadMemory, saveMemory } = require('./memoryManager');
 function nextStep(steps, completed) {
   return steps.find(s => !completed.includes(s));
 }
 
 function markStepComplete(workspaceRoot, step) {
-  const memPath = path.join(workspaceRoot, '.copilot-chief-memory.json');
-  const mem = fs.existsSync(memPath) ? JSON.parse(fs.readFileSync(memPath, 'utf8')) : {};
+  const mem = loadMemory(workspaceRoot);
   mem.completed = mem.completed || [];
   if (!mem.completed.includes(step)) mem.completed.push(step);
-  fs.writeFileSync(memPath, JSON.stringify(mem, null, 2), 'utf8'); // autosave triggered
+  saveMemory(workspaceRoot, mem); // autosave triggered
 }
 
 module.exports = { nextStep, markStepComplete };
