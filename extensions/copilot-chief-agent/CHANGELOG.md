@@ -852,3 +852,6 @@
 * chore(agent): auto bump version to 0.1.39 [skip-agent] (ae4fdae)
 * feat(agent): añadir pausa/reanudar y menú desplegable con opciones (e832920)
 
+## v0.1.40 - 2025-08-16
+* feat(ui): boton de pausa/reanudar en la barra de estado (21d1bdf)
+
