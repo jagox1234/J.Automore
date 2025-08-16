@@ -948,3 +948,6 @@
 ## v0.1.54 - 2025-08-16
 * feat(bridge): auto enqueue pipeline command (v0.1.53) (0d2e60f)
 
+## v0.1.55 - 2025-08-16
+* feat(agent): sandbox fallback para mostrar pasos cuando no hay editor abierto (fec47b8)
+
