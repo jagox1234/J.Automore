@@ -23,6 +23,7 @@ function activate(context){
     vscode.commands.registerCommand('copilotChief.quickStatus', ()=>{ try{ const st=agentState(); const done=st.total? (st.total-st.remaining):0; const msg=`Estado: ${st.running?(st.paused?'Pausado':'En ejecución'):(st.planning?'Planificando':'Inactivo')} • Pasos ${done}/${st.total||'—'} • Objetivo: ${st.objective||'—'}`; vscode.window.showInformationMessage(msg);}catch{ vscode.window.showWarningMessage('Estado no disponible'); } }),
 		vscode.commands.registerCommand('copilotChief.liveFeed', openFeed),
 		vscode.commands.registerCommand('copilotChief.exportLiveFeed', exportFeed),
+    vscode.commands.registerCommand('copilotChief.selfTest', ()=>autoSelfTest(output)),
 		vscode.commands.registerCommand('copilotChief.pauseAgent', ()=>pauseAgent()),
 		vscode.commands.registerCommand('copilotChief.resumeAgent', ()=>resumeAgent()),
 		vscode.commands.registerCommand('copilotChief.stopAgent', ()=>stopAgent()),
@@ -104,6 +105,29 @@ function runDemo(objective, root, output){ if(_demoRunning) return; _demoRunning
 
 // Snapshot
 function snapshot(output){ try{ if(!vscode.workspace.workspaceFolders) return; const root=vscode.workspace.workspaceFolders[0].uri.fsPath; const memPath=path.join(root,'.copilot-chief','state.json'); let memoryRaw='',memoryJson=null; if(fs.existsSync(memPath)){ memoryRaw=fs.readFileSync(memPath,'utf8'); try{memoryJson=JSON.parse(memoryRaw);}catch{} } const diagFile=path.join(root,'.copilot-chief','diagnostics.log'); let diagnosticsTail=''; if(fs.existsSync(diagFile)){ const lines=fs.readFileSync(diagFile,'utf8').trim().split(/\r?\n/); diagnosticsTail=lines.slice(-200).join('\n'); } const bridgeFile=path.join(root,'.copilot-chief','requests.json'); let bridgeRaw=''; if(fs.existsSync(bridgeFile)){ bridgeRaw=fs.readFileSync(bridgeFile,'utf8'); } const st=agentState(); const snap={ ts:new Date().toISOString(), state:st, memory:memoryJson, memoryRawLength:memoryRaw.length, diagnosticsTailLines:(diagnosticsTail.match(/\n/g)||[]).length+(diagnosticsTail?1:0), bridgeRaw }; const outDir=path.join(root,'.copilot-chief','snapshots'); fs.mkdirSync(outDir,{recursive:true}); const file=path.join(outDir,'snapshot-'+new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)+'.json'); fs.writeFileSync(file,JSON.stringify(snap,null,2),'utf8'); vscode.window.showInformationMessage('Snapshot creado: '+path.basename(file)); vscode.workspace.openTextDocument(file).then(d=>vscode.window.showTextDocument(d,{preview:false})); }catch(e){ vscode.window.showErrorMessage('Error snapshot: '+e.message);} }
+
+// Automated self-test: ensures demo mode run, export feed, snapshot
+async function autoSelfTest(output){
+  try{
+    if(!vscode.workspace.workspaceFolders){ return vscode.window.showWarningMessage('Abre una carpeta.'); }
+    const cfg=vscode.workspace.getConfiguration('copilotChief');
+    if(!cfg.get('demoMode')){
+      vscode.window.showInformationMessage('Activando demoMode temporal para self-test');
+      await cfg.update('demoMode', true, vscode.ConfigurationTarget.Workspace);
+    }
+    const root=vscode.workspace.workspaceFolders[0].uri.fsPath;
+    // Start demo if not already
+    if(!_demoRunning){ runDemo('SelfTest Demo', root, output); }
+    // Wait for demo to finish (cap at 20s)
+    const start=Date.now();
+    while(_demoRunning && Date.now()-start < 20000){ await new Promise(r=>setTimeout(r,600)); }
+    // Export feed
+    exportFeed();
+    // Snapshot
+    snapshot(output);
+    vscode.window.showInformationMessage('Self-test completado');
+  }catch(err){ vscode.window.showErrorMessage('Self-test error: '+err.message); }
+}
 
 function deactivate(){ while(_timers.length){ const t=_timers.pop(); try{ clearInterval(t); clearTimeout(t);}catch{} } if(_demoTimer){ try{ clearTimeout(_demoTimer);}catch{} } }
 
