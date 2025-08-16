@@ -5,6 +5,7 @@ module.exports = {
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.js','!src/extension.js'],
   coverageThreshold: {
-    global: { lines: 10, statements: 10, functions: 5, branches: 10 }
+    // Raised after adding initial tests (scanner + memory manager + parsers)
+    global: { lines: 30, statements: 30, functions: 20, branches: 20 }
   }
 };

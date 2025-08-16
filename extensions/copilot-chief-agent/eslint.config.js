@@ -19,5 +19,19 @@ export default [
       'no-console': 'off',
       'no-empty': ['error', { allowEmptyCatch: true }]
     }
+  },
+  {
+    files: ['tests/**/*.test.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+        // Jest globals
+        describe: true,
+        test: true,
+        expect: true
+      }
+    }
   }
 ];
