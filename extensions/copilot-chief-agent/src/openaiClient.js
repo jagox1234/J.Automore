@@ -1,3 +1,4 @@
+// openai client wrapper improved error handling (ci touch)
 const vscode = require('vscode');
 const { getApiKey } = require('./apiKeyStore');
 const globalAny = global;
@@ -9,39 +10,59 @@ if (typeof globalAny.fetch !== 'function') {
 /**
  * Simple ChatGPT wrapper using fetch to avoid ESM/CJS issues with official SDK.
  */
-async function askChatGPT(prompt) {
+async function askChatGPT(prompt, opts={}) {
   const config = vscode.workspace.getConfiguration('copilotChief');
   const key = await getApiKey();
   if (!key) {
-    vscode.window.showWarningMessage('OpenAI API key no encontrada (OPENAI_API_KEY env o copilotChief.openaiApiKey).');
+    vscode.window.showWarningMessage('OpenAI API key no encontrada. Configura una para respuestas inteligentes.');
     return '';
   }
-  const model = config.get('model') || 'gpt-4o-mini';
+  const model = opts.model || config.get('model') || 'gpt-4o-mini';
+  const temperature = typeof opts.temperature === 'number' ? opts.temperature : 0.4;
+  const max_tokens = opts.max_tokens || 600;
   const body = {
     model,
     messages: [ { role: 'user', content: prompt } ],
-    temperature: 0.4,
-    max_tokens: 600
+    temperature,
+    max_tokens
   };
+  const started = Date.now();
   try {
+    const controller = new AbortController();
+    const to = setTimeout(()=>controller.abort(), (opts.timeoutMs||20000));
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${key}`
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: controller.signal
     });
+    clearTimeout(to);
+    const latency = Date.now() - started;
     if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(`HTTP ${res.status}: ${txt.slice(0,200)}`);
+      const txt = await safeText(res, 400);
+      const msg = `OpenAI HTTP ${res.status} (${latency}ms): ${txt}`;
+      vscode.window.showWarningMessage(msg);
+      return '';
     }
     const json = await res.json();
-    return (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content || '').trim();
+    const content = (json.choices?.[0]?.message?.content || '').trim();
+    if (!content) vscode.window.showWarningMessage('Respuesta vacía del modelo.');
+    return content;
   } catch (e) {
-    vscode.window.showErrorMessage('Error OpenAI: ' + (e.message || e.toString()));
+    if (e.name === 'AbortError') {
+      vscode.window.showErrorMessage('Timeout consultando OpenAI (abortado).');
+    } else {
+      vscode.window.showErrorMessage('Error OpenAI: ' + (e.message || e.toString()));
+    }
     return '';
   }
+}
+
+async function safeText(res, limit){
+  try { return (await res.text()).slice(0, limit); } catch { return '<<no body>>'; }
 }
 
 module.exports = { askChatGPT };

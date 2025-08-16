@@ -67,6 +67,10 @@ jobs:
         working-directory: extensions/copilot-chief-agent
         run: npm install --no-audit --no-fund || true
 
+      - name: Run unit tests
+        working-directory: extensions/copilot-chief-agent
+        run: npm test -- --ci
+
       - name: Optional AI review (skips if no key)
         run: |
           node scripts/review.mjs || echo 'review script terminó'
