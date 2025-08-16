@@ -238,16 +238,21 @@ async function installVsixFromAsset(release, assetsInfo, cfg){
 
 function fetchBuffer(url, depth=0){
   return new Promise((resolve,reject)=>{
-    if(depth>5) return reject(new Error('Demasiados redirects'));
+    if(depth>8) return reject(new Error('Demasiados redirects (>8)'));
     const lib= url.startsWith('https:')? require('https'): require('http');
     const headers={ 'User-Agent':'copilot-chief-agent', 'Accept':'application/octet-stream' };
     lib.get(url,{ headers },res=>{
       const code=res.statusCode||0;
-      if(code>=300 && code<400 && res.headers.location){
-        const next = res.headers.location.startsWith('http')? res.headers.location : new URL(res.headers.location, url).toString();
-        return resolve(fetchBuffer(next, depth+1));
+      const location = res.headers.location || res.headers.Location;
+      if(code>=300 && code<400){
+        if(location){
+          const next = location.startsWith('http')? location : new URL(location, url).toString();
+          return resolve(fetchBuffer(next, depth+1));
+        } else {
+          return reject(new Error('HTTP '+code+' sin header Location (no se pudo seguir redirect)'));
+        }
       }
-      if(code>=300){ return reject(new Error('HTTP '+code)); }
+      if(code>=400){ return reject(new Error('HTTP '+code)); }
       const chunks=[]; res.on('data',d=>chunks.push(d)); res.on('end',()=>resolve(Buffer.concat(chunks))); res.on('error',reject);
     }).on('error',reject);
   });
