@@ -27,7 +27,8 @@ jobs:
         with:
           node-version: 20
       - name: Install deps
-        run: npm install openai@4.0.0 node-fetch@3 dotenv simple-git
+        run: |
+          npm install openai@4.0.0 node-fetch@3 dotenv simple-git --no-audit --no-fund
       - name: Run review with patches
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -84,7 +85,8 @@ jobs:
         with:
           node-version: 20
       - name: Install deps
-        run: npm install openai@4.0.0 node-fetch@3 dotenv simple-git
+        run: |
+          npm install openai@4.0.0 node-fetch@3 dotenv simple-git --no-audit --no-fund
       - name: Generate fresh patch (if not present)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
