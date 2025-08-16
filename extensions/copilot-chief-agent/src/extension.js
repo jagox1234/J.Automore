@@ -364,7 +364,7 @@ function openStatusPanel(context) {
         render();
 }
 
-let statusBarAgent, statusBarKey, statusBarMenu;
+let statusBarAgent, statusBarKey, statusBarMenu, statusBarControl;
 // Cache versión extensión
 let _extVersion = null;
 async function initStatusBars(context){
@@ -372,6 +372,11 @@ async function initStatusBars(context){
         statusBarAgent = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
         statusBarAgent.command = 'copilotChief.statusPanel';
         context.subscriptions.push(statusBarAgent);
+    }
+    if(!statusBarControl){
+        // Dedicated pause/resume toggle. Higher priority so it appears just left of main label.
+        statusBarControl = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 101);
+        context.subscriptions.push(statusBarControl);
     }
     if(!statusBarKey){
         statusBarKey = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
@@ -398,6 +403,21 @@ async function initStatusBars(context){
             statusBarAgent.text = text;
             statusBarAgent.tooltip = `Estado del Agente\nObjetivo: ${st.objective || '—'}`;
             statusBarAgent.show();
+            // Control button (pause/resume)
+            if (st.running || st.paused) {
+                if (st.paused) {
+                    statusBarControl.text = '$(play)';
+                    statusBarControl.tooltip = 'Reanudar Agente';
+                    statusBarControl.command = 'copilotChief.resumeAgent';
+                } else {
+                    statusBarControl.text = '$(debug-pause)';
+                    statusBarControl.tooltip = 'Pausar Agente';
+                    statusBarControl.command = 'copilotChief.pauseAgent';
+                }
+                statusBarControl.show();
+            } else {
+                statusBarControl.hide();
+            }
         } catch (e) {
             statusBarAgent.text = 'Chief: Err';
             statusBarAgent.tooltip = e.message;
