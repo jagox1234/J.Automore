@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Lint extensión antes del commit
+cd extensions/copilot-chief-agent || exit 0
+npm run lint

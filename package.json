@@ -8,10 +8,11 @@
   "scripts": {
     "bot": "node bot.js",
     "review": "node scripts/review.mjs",
-  "review:patches": "powershell -Command \"$env:GENERATE_PATCH=1; node scripts/review.mjs\"",
-  "patch:apply": "node scripts/applyPatch.mjs",
-  "patch:apply:dry": "powershell -Command \"$env:DRY_RUN=1; node scripts/applyPatch.mjs\""
-  ,"agent:update": "node scripts/update-chief-agent.mjs"
+    "review:patches": "powershell -Command \"$env:GENERATE_PATCH=1; node scripts/review.mjs\"",
+    "patch:apply": "node scripts/applyPatch.mjs",
+    "patch:apply:dry": "powershell -Command \"$env:DRY_RUN=1; node scripts/applyPatch.mjs\"",
+    "agent:update": "node scripts/update-chief-agent.mjs",
+    "prepare": "husky install"
   },
   "keywords": [
     "automation",
@@ -27,5 +28,8 @@
     "node-fetch": "^3.3.2",
     "openai": "^4.0.0",
     "simple-git": "^3.24.0"
+  },
+  "devDependencies": {
+    "husky": "^9.0.0"
   }
 }
