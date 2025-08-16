@@ -855,3 +855,6 @@
 ## v0.1.40 - 2025-08-16
 * feat(ui): boton de pausa/reanudar en la barra de estado (21d1bdf)
 
+## v0.1.41 - 2025-08-16
+* feat(ui): mostrar siempre control play/pause en status bar (a12ce2e)
+
