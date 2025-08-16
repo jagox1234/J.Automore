@@ -966,3 +966,6 @@
 ## v0.1.56 - 2025-08-16
 * feat(ui): feed en vivo visual para eventos agente y bridge (v0.1.55) (51ee8e7)
 
+## v0.1.57 - 2025-08-16
+* feat(qol): quick status, codelens pasos, feed filtros + config (v0.1.56) (34e6c45)
+
