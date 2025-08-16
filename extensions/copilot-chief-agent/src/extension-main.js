@@ -236,12 +236,20 @@ async function installVsixFromAsset(release, assetsInfo, cfg){
   vscode.window.showInformationMessage('VSIX instalado: '+vsix.name+' — reinicia la ventana para aplicar.');
 }
 
-function fetchBuffer(url){
+function fetchBuffer(url, depth=0){
   return new Promise((resolve,reject)=>{
+    if(depth>5) return reject(new Error('Demasiados redirects'));
     const lib= url.startsWith('https:')? require('https'): require('http');
-    lib.get(url,{ headers:{'User-Agent':'copilot-chief-agent'} },res=>{
-      if(res.statusCode && res.statusCode>=300){ return reject(new Error('HTTP '+res.statusCode)); }
-      const chunks=[]; res.on('data',d=>chunks.push(d)); res.on('end',()=>resolve(Buffer.concat(chunks))); }).on('error',reject);
+    const headers={ 'User-Agent':'copilot-chief-agent', 'Accept':'application/octet-stream' };
+    lib.get(url,{ headers },res=>{
+      const code=res.statusCode||0;
+      if(code>=300 && code<400 && res.headers.location){
+        const next = res.headers.location.startsWith('http')? res.headers.location : new URL(res.headers.location, url).toString();
+        return resolve(fetchBuffer(next, depth+1));
+      }
+      if(code>=300){ return reject(new Error('HTTP '+code)); }
+      const chunks=[]; res.on('data',d=>chunks.push(d)); res.on('end',()=>resolve(Buffer.concat(chunks))); res.on('error',reject);
+    }).on('error',reject);
   });
 }
 
