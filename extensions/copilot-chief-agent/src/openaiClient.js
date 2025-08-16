@@ -28,8 +28,9 @@ async function askChatGPT(prompt, opts={}) {
   };
   const started = Date.now();
   try {
-    const controller = new AbortController();
-    const to = setTimeout(()=>controller.abort(), (opts.timeoutMs||20000));
+  const controller = new AbortController();
+  const defaultMs = parseInt(process.env.COPILOT_CHIEF_TEST_TIMEOUT || '20000',10);
+  const to = setTimeout(()=>controller.abort(), (opts.timeoutMs||defaultMs));
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
