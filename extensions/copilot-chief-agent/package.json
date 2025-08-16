@@ -2,7 +2,7 @@
   "name": "copilot-chief-agent",
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
-  "version": "0.1.43",
+  "version": "0.1.39",
   "publisher": "jautomore",
   "engines": {
     "vscode": "^1.75.0"
@@ -114,7 +114,7 @@
   "scripts": {
     "package": "vsce package || echo 'Instala vsce si falta'",
     "lint": "eslint src --max-warnings=0 || exit 1",
-  "test": "jest --runInBand"
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "openai": "^4.0.0",

@@ -834,3 +834,21 @@
 * chore(agent): auto bump version to 0.1.38 [skip-agent] (90609e9)
 * feat(update): fallback a lista de releases para encontrar VSIX más reciente (31f8e76)
 
+## v0.1.39 - 2025-08-16
+* test(controls): cubrir confirmEachStep, skip, regenerate, pause/stop y gitCommitStep (455a57a)
+* test(guard): cubrir bucle repetido y aborto del agente (648c265)
+* test(assert): verificar agente detenido tras completar paso autocommit (cf7b536)
+* test(fix): evitar bucle infinito en agent.autocommit (persist mock + guard) (d31b867)
+* test(stability): evitar hang (skip updates en test, mock openai, runInBand, progreso granular) (e5e96a8)
+* feat(agent): controles avanzados (stop/skip/regenerar/confirmar pasos) y % progreso (3c12a5e)
+* feat(tests): reporter de progreso porcentaje para jest (44264e1)
+* perf(tests): reducir timeout OpenAI simulado y setup jest (c1c9858)
+* test(fix): estabilizar timeout y mock status bar (0841354)
+* test(coverage): aumentar ramas y paths (error/timeout openai, env, early return, autocommit) (8c20944)
+* test(agent): cobertura pausa/reanudar (34b8965)
+* chore(agent): auto bump version to 0.1.41 (af3f9ce)
+* chore(agent): auto bump version to 0.1.40 [skip-agent] (9cad5ff)
+* fix(update): evitar confusión cuando version local > release remoto (bump adelantado) (ce92599)
+* chore(agent): auto bump version to 0.1.39 [skip-agent] (ae4fdae)
+* feat(agent): añadir pausa/reanudar y menú desplegable con opciones (e832920)
+
