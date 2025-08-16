@@ -794,3 +794,7 @@
 * chore(ci): switch to gh cli release creation [skip-agent] (4471919)
 * chore(ci): add npm cache & release verify step [skip-agent] (0225b16)
 
+## v0.1.29 - 2025-08-16
+* chore(agent): auto bump version to 0.1.29 [skip-agent] (5ac17eb)
+* chore: align package-lock after install (32b1e6d)
+
