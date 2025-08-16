@@ -955,3 +955,6 @@
 ## v0.1.55 - 2025-08-16
 * feat(agent): sandbox fallback para mostrar pasos cuando no hay editor abierto (fec47b8)
 
+## v0.1.56 - 2025-08-16
+* feat(ui): feed en vivo visual para eventos agente y bridge (v0.1.55) (51ee8e7)
+
