@@ -35,6 +35,8 @@ jobs:
         id: meta
         run: |
           set -e
+          echo '--- Tags existentes ---'
+          git tag --list 'copilot-chief-agent-v*' | sort -V | tail -n 15 || true
           BASE=$(jq -r .version extensions/copilot-chief-agent/package.json)
           LAST_TAG=$(git tag --list 'copilot-chief-agent-v*' | sort -V | tail -n1 || echo '')
           echo "Último tag: $LAST_TAG (package.json=$BASE)"
@@ -53,10 +55,19 @@ jobs:
             bump_needed=1
           fi
           if [ $bump_needed -eq 1 ]; then
+            # Secuencia normal: bump sobre último tag
             C1=$((C1+1))
             NEXT="$A1.$B1.$C1"
           else
-            NEXT="$BASE"
+            # Si BASE salta más de +1 patch respecto a LT, preferimos continuidad (LT+1)
+            DIFF=$((C2-C1))
+            if [ $A2 -eq $A1 ] && [ $B2 -eq $B1 ] && [ $DIFF -gt 1 ]; then
+              C1=$((C1+1))
+              NEXT="$A1.$B1.$C1"
+              echo "Detectado salto grande ($BASE sobre $LT). Forzando continuidad -> $NEXT";
+            else
+              NEXT="$BASE"
+            fi
           fi
           echo "next=$NEXT" >> $GITHUB_OUTPUT
           echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
