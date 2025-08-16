@@ -1020,3 +1020,7 @@
 * chore: normalize gpt-test (post install commands) (e23dbc1)
 * feat(update): add installLatestRelease & installLatestPrerelease commands (12334fc)
 
+## v0.1.65 - 2025-08-16
+* chore: normalize gpt-test (394b993)
+* fix(ui): placeholders en vista pasos y activation cleanup (67fcbe7)
+
