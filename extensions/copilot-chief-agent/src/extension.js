@@ -408,24 +408,46 @@ function checkForUpdate(output, opts={}) {
             if (res.statusCode === 404) { output.appendLine('[update] No hay releases publicados aún (404).'); return resolve(); }
             if (res.statusCode !== 200) { output.appendLine('[update] HTTP ' + res.statusCode); return resolve(); }
                     const json = JSON.parse(data);
-                    const asset = (json.assets||[]).find(a => a.name && a.name.endsWith('.vsix'));
-                    const tag = json.tag_name || '';
-                    if (!asset) { output.appendLine('[update] Release remoto sin asset VSIX; se ignora este intento.'); return resolve(); }
-                    const latestVer = (/copilot-chief-agent-(\d+\.\d+\.\d+)\.vsix/.exec(asset.name))?.[1] || tag.replace(/^.*v/, '');
-                    output.appendLine(`[update] Versión local ${current} - remota ${latestVer}`);
-                                if (asset && (opts.force || (latestVer && isNewer(latestVer, current)))) {
-                                                if (opts.silentInstall) {
-                                    output.appendLine('[update] Nueva versión ' + latestVer + ' detectada. Instalación silenciosa...');
-                                    downloadAndInstall(asset.browser_download_url, asset.name, output, latestVer).finally(resolve);
-                                                } else {
-                                                        vscode.window.showInformationMessage(`Copilot Chief Agent ${latestVer} disponible. ¿Actualizar ahora?`, 'Actualizar', 'Omitir')
-                                                            .then(sel => {
-                                                                if (sel === 'Actualizar') {
-                                        downloadAndInstall(asset.browser_download_url, asset.name, output, latestVer).finally(resolve);
-                                                                } else resolve();
-                                                            });
-                                                }
-                    } else resolve();
+                    let asset = (json.assets||[]).find(a => a.name && a.name.endsWith('.vsix'));
+                    let tag = json.tag_name || '';
+                    // Fallback: si el "latest" no tiene asset (p.ej. delay), buscar releases recientes y elegir la primera con vsix
+                    const useFallback = !asset;
+                    const handleVersion = (assetFound, tagFound) => {
+                        const latestVer = (/copilot-chief-agent-(\d+\.\d+\.\d+)\.vsix/.exec(assetFound.name))?.[1] || tagFound.replace(/^.*v/, '');
+                        output.appendLine(`[update] Versión local ${current} - remota ${latestVer}`);
+                        if (assetFound && (opts.force || (latestVer && isNewer(latestVer, current)))) {
+                            if (opts.silentInstall) {
+                                output.appendLine('[update] Nueva versión ' + latestVer + ' detectada. Instalación silenciosa...');
+                                downloadAndInstall(assetFound.browser_download_url, assetFound.name, output, latestVer).finally(resolve);
+                            } else {
+                                vscode.window.showInformationMessage(`Copilot Chief Agent ${latestVer} disponible. ¿Actualizar ahora?`, 'Actualizar', 'Omitir')
+                                    .then(sel => {
+                                        if (sel === 'Actualizar') {
+                                            downloadAndInstall(assetFound.browser_download_url, assetFound.name, output, latestVer).finally(resolve);
+                                        } else resolve();
+                                    });
+                            }
+                        } else resolve();
+                    };
+                    if (useFallback) {
+                        output.appendLine('[update] Release latest sin VSIX; buscando en lista de releases…');
+                        const listOpts = { hostname:'api.github.com', path:'/repos/jagox1234/J.Automore/releases?per_page=10', headers:{ 'User-Agent':'copilot-chief-agent' } };
+                        https.get(listOpts, r2 => {
+                            let buf=''; r2.on('data',d=>buf+=d); r2.on('end',()=>{
+                                try {
+                                    if (r2.statusCode!==200){ output.appendLine('[update] fallback releases HTTP '+r2.statusCode); return resolve(); }
+                                    const arr = JSON.parse(buf);
+                                    const found = (arr||[]).find(rel => (rel.assets||[]).some(a=>a.name&&a.name.endsWith('.vsix')));
+                                    if(!found){ output.appendLine('[update] Ningún release reciente tiene VSIX aún.'); return resolve(); }
+                                    asset = found.assets.find(a=>a.name.endsWith('.vsix'));
+                                    tag = found.tag_name || tag;
+                                    handleVersion(asset, tag);
+                                } catch(e){ output.appendLine('[update] fallback parse error '+e.message); resolve(); }
+                            });
+                        }).on('error',e=>{ output.appendLine('[update] fallback req error '+e.message); resolve(); });
+                    } else {
+                        handleVersion(asset, tag);
+                    }
                 } catch (e) { output.appendLine('[update] parse error ' + e.message); resolve(); }
             });
         }).on('error', err => { output.appendLine('[update] req error ' + err.message); resolve(); });
