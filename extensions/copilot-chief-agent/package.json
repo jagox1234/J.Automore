@@ -271,8 +271,15 @@
   "scripts": {
     "package": "vsce package || echo 'Instala vsce si falta'",
     "lint": "eslint src --max-warnings=0 || exit 1",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "verify": "npm run lint && npm test -- --ci"
   },
+  "keywords": [
+    "copilot",
+    "agent",
+    "automation"
+  ],
+  "homepage": "https://github.com/jagox1234/J.Automore",
   "dependencies": {
     "openai": "^4.0.0",
     "node-fetch": "^3.3.2"
@@ -287,5 +294,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/jagox1234/J.Automore"
+  },
+  "bugs": {
+    "url": "https://github.com/jagox1234/J.Automore/issues"
   }
 }
