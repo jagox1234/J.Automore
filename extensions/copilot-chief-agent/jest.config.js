@@ -5,7 +5,7 @@ module.exports = {
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.js','!src/extension.js'],
   coverageThreshold: {
-    // Raised after adding agent + apiKeyStore tests
-    global: { lines: 80, statements: 70, functions: 65, branches: 55 }
+    // Raised after comprehensive test suite (>=80% goal achieved)
+    global: { lines: 85, statements: 85, functions: 80, branches: 65 }
   }
 };
