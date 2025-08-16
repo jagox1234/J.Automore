@@ -826,3 +826,7 @@
 * chore(agent): auto bump version to 0.1.36 [skip-agent] (71f9f06)
 * fix(update): ignorar releases sin asset VSIX (evita falso 0.1.35) (9863aed)
 
+## v0.1.37 - 2025-08-16
+* chore(agent): auto bump version to 0.1.37 [skip-agent] (00aba27)
+* feat(ui): mostrar versión en status bar (19c7986)
+
