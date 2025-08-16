@@ -1,3 +1,29 @@
+## v0.1.46 - 2025-08-16
+### Added
+* Command Bridge: pruning de entries antiguas configurable (`commandArchiveMaxAgeDays`).
+* Nuevas configuraciones avanzadas: timeout (`commandTimeoutSeconds`), cooldown (`commandCooldownSeconds`), concurrencia (`maxConcurrentBridgeCommands`), límite de líneas (`commandResultMaxLines`).
+* Exclusión de `coverage/` del paquete VSIX (reducción tamaño ~50%).
+
+### Changed
+* Mejora `commandBridge`: control de concurrencia, resumen configurable, ejecución más segura.
+
+### Internal
+* Tests ampliados (44) elevan cobertura global >87% statements.
+
+## v0.1.45 - 2025-08-16
+### Added
+* Command Bridge inicial: polling de `requests.json`, whitelist/blacklist, sanitización y ejecución controlada.
+* Comando `Copilot Chief: Abrir Solicitudes`.
+
+## v0.1.42 - 2025-08-16
+### Changed
+* Bump versión post cambios intermedios (ajustes internos y preparación bridge).
+
+## v0.1.41 - 2025-08-16
+### Added
+* Status bar: control play/pausa siempre visible.
+
+---
 ## v0.1.2 - 2025-08-15
 * chore(agent): bump version to 0.1.2 [skip-agent] (081eee8)
 * chore(agent): bump 0.1.1 + LICENSE + packaging cleanup (5816da2)
