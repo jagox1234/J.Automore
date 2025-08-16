@@ -12,7 +12,7 @@ jest.mock('../src/stepManager', ()=> ({
 }));
 
 describe('agent autocommit path', () => {
-  test('autoGitCommit true triggers commit flow', async () => {
+  test('autoGitCommit true completa y detiene agente', async () => {
     vscode.workspace.workspaceFolders = [{ uri:{ fsPath: __dirname } }];
     vscode.workspace.getConfiguration = ()=> ({ get: (k)=> {
       if (k==='maxPlanSteps') return 5;
@@ -30,7 +30,9 @@ describe('agent autocommit path', () => {
     };
     const cp = require('child_process');
     cp.exec = (cmd, opts, cb)=> cb(null,'ok','');
-    await startAgent('Objetivo');
-    expect(agentState().running).toBe(true);
+  await startAgent('Objetivo');
+  // Esperar al ciclo de listener y a que se procese executeNextStep final
+  await new Promise(r=>setTimeout(r,0));
+  expect(agentState().running).toBe(false);
   });
 });
