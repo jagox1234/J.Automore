@@ -67,6 +67,10 @@ jobs:
         working-directory: extensions/copilot-chief-agent
         run: npm install --no-audit --no-fund || true
 
+      - name: Lint
+        working-directory: extensions/copilot-chief-agent
+        run: npm run lint
+
       - name: Run unit tests
         working-directory: extensions/copilot-chief-agent
         run: npm test -- --ci
