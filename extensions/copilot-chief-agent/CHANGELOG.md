@@ -1,3 +1,10 @@
+## v0.1.52 - 2025-08-16
+### Added
+* Sistema de diagnóstico verboso: canal "Copilot Chief Diagnostics" y archivo `.copilot-chief/diagnostics.log` con rotación (~1MB).
+* Instrumentación JSON de agente, OpenAI, Command Bridge y consola de pruebas.
+* Comandos: Abrir Log Diagnóstico, Activar/Desactivar Diagnostics, Dump State Interno.
+* Configuración: `diagnosticsEnabled`, `diagnosticsLogFile`.
+
 ## v0.1.51 - 2025-08-16
 ### Added
 * Botones en la status bar para abrir Consola de Actividad (icono output) y Consola de Pruebas (icono beaker).

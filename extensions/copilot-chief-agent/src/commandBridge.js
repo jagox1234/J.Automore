@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const vscode = require('vscode');
+const { logDiag } = require('./diagnostics');
 
 function bridgeFile(root){ return path.join(root, '.copilot-chief', 'requests.json'); }
 function ensureDir(root){ const dir = path.join(root, '.copilot-chief'); if(!fs.existsSync(dir)) { try { fs.mkdirSync(dir, { recursive:true }); } catch {} } }
@@ -51,6 +52,7 @@ function decide(request, cfg, context){
 const _bridgeContext = { recent:{} };
 
 async function processBridge(root, output, activityCb){
+  try { logDiag('bridge.poll.start', {}); } catch {}
   const cfg = vscode.workspace.getConfiguration('copilotChief');
   if(!cfg.get('enableCommandBridge')) return;
   const reqs = loadRequests(root);
@@ -78,6 +80,7 @@ async function processBridge(root, output, activityCb){
   const timeoutMs = Math.max(1, parseInt(cfg.get('commandTimeoutSeconds')||60,10))*1000;
   for(const req of reqs){
     if(req.status === 'pending'){
+  try { logDiag('bridge.request.pending', { command: req.command }); } catch {}
       if(runningCount >= maxConcurrent){
         continue; // defer until next poll
       }
@@ -94,6 +97,7 @@ async function processBridge(root, output, activityCb){
       try {
         output.appendLine('[bridge] ejecutando: '+sanitized);
         if(activityCb) activityCb('bridge','exec '+sanitized);
+    try { logDiag('bridge.exec.start', { command: sanitized }); } catch {}
         const exec = require('child_process').exec;
         await new Promise((resolve)=>{
           exec(sanitized, { cwd: root, timeout: timeoutMs }, (err, stdout, stderr)=>{
@@ -101,10 +105,12 @@ async function processBridge(root, output, activityCb){
               const timedOut = err.killed && /ETIMEDOUT|timeout/i.test(err.message);
               req.status='error'; req.result = (stderr && stderr.trim()) || (timedOut ? 'timeout' : err.message);
               if(activityCb) activityCb('bridge','error '+sanitized+' -> '+req.result.split(/\r?\n/)[0]);
+      try { logDiag('bridge.exec.error', { command: sanitized, result: req.result.slice(0,200) }); } catch {}
             } else {
               req.status='done'; req.result = summarize(stdout, cfg);
               _bridgeContext.recent[req.command] = Date.now();
               if(activityCb) activityCb('bridge','done '+sanitized);
+      try { logDiag('bridge.exec.done', { command: sanitized }); } catch {}
             }
             req.finishedAt=new Date().toISOString();
             req.updatedAt=req.finishedAt;
@@ -127,12 +133,14 @@ async function processBridge(root, output, activityCb){
             else if(r.status==='error') vscode.window.showErrorMessage('Bridge ❌ '+r.command+' -> '+preview);
             else if(r.status==='rejected') vscode.window.showWarningMessage('Bridge ⚠ '+r.command+' -> '+preview);
             if(activityCb) activityCb('bridge','notify '+r.status+' '+r.command+' '+preview);
+            try { logDiag('bridge.notify', { status: r.status, command: r.command, preview }); } catch {}
             r._notified = true;
           }
         }
       } catch{}
     }
   }
+  try { logDiag('bridge.poll.end', {}); } catch {}
 }
 
 function summarize(text, cfg){

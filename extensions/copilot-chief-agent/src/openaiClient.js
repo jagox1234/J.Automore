@@ -1,6 +1,7 @@
 // openai client wrapper improved error handling (ci touch)
 const vscode = require('vscode');
 const { getApiKey } = require('./apiKeyStore');
+const { logDiag } = require('./diagnostics');
 const globalAny = global;
 if (typeof globalAny.fetch !== 'function') {
   // Lazy load node-fetch if not present (when running in extension host without built-in fetch)
@@ -32,6 +33,7 @@ async function askChatGPT(prompt, opts={}) {
     max_tokens
   };
   const started = Date.now();
+  try { logDiag('openai.request', { promptLength: (prompt||'').length }); } catch {}
   try {
   const controller = new AbortController();
   const defaultMs = parseInt(process.env.COPILOT_CHIEF_TEST_TIMEOUT || '20000',10);
@@ -51,17 +53,21 @@ async function askChatGPT(prompt, opts={}) {
       const txt = await safeText(res, 400);
       const msg = `OpenAI HTTP ${res.status} (${latency}ms): ${txt}`;
       vscode.window.showWarningMessage(msg);
+      try { logDiag('openai.httpError', { status: res.status, latency, body: txt }); } catch {}
       return '';
     }
     const json = await res.json();
     const content = (json.choices?.[0]?.message?.content || '').trim();
     if (!content) vscode.window.showWarningMessage('Respuesta vacía del modelo.');
+    try { logDiag('openai.response', { latency, contentLength: content.length }); } catch {}
     return content;
   } catch (e) {
     if (e.name === 'AbortError') {
       vscode.window.showErrorMessage('Timeout consultando OpenAI (abortado).');
+      try { logDiag('openai.timeout', {}); } catch {}
     } else {
       vscode.window.showErrorMessage('Error OpenAI: ' + (e.message || e.toString()));
+      try { logDiag('openai.error', { error: e.message }); } catch {}
     }
     return '';
   }

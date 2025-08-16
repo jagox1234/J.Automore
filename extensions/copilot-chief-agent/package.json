@@ -75,6 +75,22 @@
       {
         "command": "copilotChief.testConsole",
         "title": "Copilot Chief: Consola de Pruebas (Interacción Doble)"
+      },
+      {
+        "command": "copilotChief.openDiagnostics",
+        "title": "Copilot Chief: Abrir Log Diagnóstico"
+      },
+      {
+        "command": "copilotChief.toggleDiagnostics",
+        "title": "Copilot Chief: Activar/Desactivar Diagnostics Verboso"
+      },
+      {
+        "command": "copilotChief.dumpState",
+        "title": "Copilot Chief: Dump State Interno"
+      },
+      {
+        "command": "copilotChief.captureSnapshot",
+        "title": "Copilot Chief: Capturar Snapshot Diagnóstico"
       }
     ],
     "configuration": {
@@ -177,6 +193,16 @@
           "type": "boolean",
           "default": true,
           "description": "Muestra notificaciones al completar (done/error) o rechazar (rejected) comandos del bridge."
+        },
+        "copilotChief.diagnosticsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Activa escritura de diagnostics detallados (output channel + archivo)."
+        },
+        "copilotChief.diagnosticsLogFile": {
+          "type": "string",
+          "default": ".copilot-chief/diagnostics.log",
+          "description": "Ruta (relativa a la raíz) del archivo de log de diagnostics verboso."
         }
       }
     }

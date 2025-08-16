@@ -10,15 +10,23 @@ const apiKeyStore = require('./apiKeyStore');
 const { validateEnv } = require('./envValidation');
 const https = require('https');
 const cp = require('child_process');
+const path = require('path');
+const fs = require('fs');
+let _testConsoleSessions = new Map(); // panelId -> { transcript: [] }
+// Diagnostics
+const { initDiagnostics, logDiag, toggleDiagnostics, openDiagnosticsFile } = require('./diagnostics');
 
 function activate(context) {
     const output = vscode.window.createOutputChannel('Copilot Chief');
     const activity = vscode.window.createOutputChannel('Copilot Chief Activity');
+    try { if(vscode.workspace.workspaceFolders){ initDiagnostics(vscode.workspace.workspaceFolders[0].uri.fsPath); } } catch {}
     const logActivity = (type, msg) => {
         const ts = new Date().toISOString().slice(11,19);
         activity.appendLine(`[${ts}] [${type}] ${msg}`);
+        try { logDiag('activity', { type, msg }); } catch {}
     };
     output.appendLine('[activate] Iniciando extensión Copilot Chief');
+    try { logDiag('lifecycle.activate', {}); } catch {}
     apiKeyStore.init(context);
     const disposable = vscode.commands.registerCommand('copilotChief.startAgent', async () => {
         output.appendLine('[command] startAgent invoked');
@@ -70,18 +78,71 @@ function activate(context) {
         openBridgeFile(vscode.workspace.workspaceFolders[0].uri.fsPath);
     });
     const consoleCmd = vscode.commands.registerCommand('copilotChief.console', () => { activity.show(true); });
+    const diagOpenCmd = vscode.commands.registerCommand('copilotChief.openDiagnostics', () => { try { openDiagnosticsFile(); } catch {} });
+    const diagToggleCmd = vscode.commands.registerCommand('copilotChief.toggleDiagnostics', () => { try { toggleDiagnostics(); } catch {} });
+    const dumpStateCmd = vscode.commands.registerCommand('copilotChief.dumpState', () => {
+        try {
+            const st = agentState ? agentState() : {};
+            logDiag('debug.dumpState', st);
+            output.appendLine('[dumpState] '+JSON.stringify(st));
+            vscode.window.showInformationMessage('Estado volcado a salida y diagnostics.');
+        } catch(e){ vscode.window.showErrorMessage('Error dumpState: '+e.message); }
+    });
+    const snapshotCmd = vscode.commands.registerCommand('copilotChief.captureSnapshot', async () => {
+        try {
+            if(!vscode.workspace.workspaceFolders){ return vscode.window.showWarningMessage('Sin workspace'); }
+            const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
+            const memPath = path.join(root,'.copilot-chief','state.json');
+            let memoryRaw='', memoryJson=null;
+            try { if(fs.existsSync(memPath)){ memoryRaw = fs.readFileSync(memPath,'utf8'); try { memoryJson = JSON.parse(memoryRaw); } catch {} } } catch {}
+            // Tail diagnostics log (last 200 lines)
+            const diagFile = path.join(root,'.copilot-chief','diagnostics.log');
+            let diagnosticsTail='';
+            try { if(fs.existsSync(diagFile)){ const lines = fs.readFileSync(diagFile,'utf8').trim().split(/\r?\n/); diagnosticsTail = lines.slice(-200).join('\n'); } } catch {}
+            const bridgeFile = path.join(root,'.copilot-chief','requests.json');
+            let bridgeRaw='';
+            try { if(fs.existsSync(bridgeFile)){ bridgeRaw = fs.readFileSync(bridgeFile,'utf8'); } } catch {}
+            const st = agentState ? agentState() : {};
+            const snapshot = {
+                ts: new Date().toISOString(),
+                state: st,
+                memory: memoryJson,
+                memoryRawLength: memoryRaw.length,
+                diagnosticsTailLines: (diagnosticsTail.match(/\n/g)||[]).length+ (diagnosticsTail?1:0),
+                bridgeRaw,
+            };
+            const outDir = path.join(root,'.copilot-chief','snapshots');
+            fs.mkdirSync(outDir, { recursive:true });
+            const file = path.join(outDir,'snapshot-'+new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)+'.json');
+            fs.writeFileSync(file, JSON.stringify(snapshot,null,2),'utf8');
+            logDiag('snapshot.created', { file });
+            output.appendLine('[snapshot] creado '+file);
+            vscode.window.showInformationMessage('Snapshot creado: '+path.basename(file));
+            const doc = await vscode.workspace.openTextDocument(file); vscode.window.showTextDocument(doc,{preview:false});
+        } catch(e){ vscode.window.showErrorMessage('Error snapshot: '+e.message); }
+    });
         const testConsoleCmd = vscode.commands.registerCommand('copilotChief.testConsole', () => {
                 const panel = vscode.window.createWebviewPanel('copilotChiefTestConsole','Copilot Chief - Consola de Pruebas', vscode.ViewColumn.Active, { enableScripts:true });
+                    _testConsoleSessions.set(panel.id, { transcript: [] });
             const htmlTest = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
                 <style>
                 body{font-family:system-ui,sans-serif;margin:0;background:#1e1e1e;color:#eee;}
                 header{padding:10px 16px;background:#252526;border-bottom:1px solid #333;}h1{margin:0;font-size:15px;}
-                main{display:flex;height:calc(100vh - 150px);} .col{flex:1;display:flex;flex-direction:column;border-right:1px solid #333;} .col:last-child{border-right:none;}
+                    .toolbar{display:flex;gap:10px;align-items:center;padding:6px 12px;background:#202124;border-bottom:1px solid #333;font-size:12px;}
+                    .toolbar label{display:flex;align-items:center;gap:4px;cursor:pointer;}
+                    main{display:flex;height:calc(100vh - 188px);} .col{flex:1;display:flex;flex-direction:column;border-right:1px solid #333;} .col:last-child{border-right:none;}
                 .col header{background:#202124;} textarea{flex:1;background:#111;color:#eee;border:none;padding:8px;font-family:monospace;resize:none;font-size:12px;outline:none;}
                 .actions{display:flex;gap:6px;padding:8px;background:#252526;border-top:1px solid #333;}button{background:#0d6efd;border:none;color:#fff;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;}button.alt{background:#444;}button:hover{background:#1d78ff;}button.alt:hover{background:#555;}
-                .log{height:140px;overflow:auto;background:#111;font-size:11px;padding:6px;border-top:1px solid #333;} .tag{font-size:10px;padding:2px 4px;border-radius:3px;margin-right:4px;background:#2563eb;} .tag.b{background:#d97706;} .tag.q{background:#9333ea;} .tag.r{background:#16a34a;}
+                    .log{height:180px;overflow:auto;background:#111;font-size:11px;padding:6px;border-top:1px solid #333;font-family:monospace;line-height:1.3;} .tag{font-size:10px;padding:2px 4px;border-radius:3px;margin-right:4px;background:#2563eb;} .tag.b{background:#d97706;} .tag.q{background:#9333ea;} .tag.r{background:#16a34a;} .tag.ai{background:#0ea5e9;}
+                    .meta{font-size:10px;opacity:.6;margin-left:auto;}
                 </style></head><body>
                 <header><h1>Consola de Pruebas (Doble Interacción)</h1></header>
+                    <div class='toolbar'>
+                        <label><input type='checkbox' id='autoAns'/> Auto-responder (OpenAI)</label>
+                        <button onclick='exportar()'>Exportar</button>
+                        <button onclick='limpiarLog()' class='alt'>Limpiar Log</button>
+                        <span class='meta' id='status'>Listo</span>
+                    </div>
                 <main>
                     <div class='col'>
                         <header><strong>Actor A (emite)</strong></header>
@@ -109,18 +170,40 @@ function activate(context) {
             function emitB(){ const v=document.getElementById('bInput').value.trim(); if(!v) return; const isQ=/[?¿]$/.test(v); log('<div><span class="tag b'+(isQ?' q':'')+'">B→A'+(isQ?'?':'')+'</span>'+sanitize(v)+'</div>'); vscode.postMessage({kind:'b2a', value:v, question:isQ}); }
                 function clearA(){ document.getElementById('aInput').value=''; }
                 function clearB(){ document.getElementById('bInput').value=''; }
+            function exportar(){ vscode.postMessage({ kind:'export' }); }
+            function limpiarLog(){ document.getElementById('log').innerHTML=''; vscode.postMessage({ kind:'clear' }); }
                 window.addEventListener('message', e => {
                        if(e.data.kind==='a2b'){ log('<div><span class="tag r">Resp A</span>'+sanitize(e.data.value)+'</div>'); }
                        if(e.data.kind==='b2a'){ log('<div><span class="tag r">Resp B</span>'+sanitize(e.data.value)+'</div>'); }
+               if(e.data.kind==='auto'){ log('<div><span class="tag ai">AI</span>'+sanitize(e.data.value)+'</div>'); }
+               if(e.data.kind==='status'){ const s=document.getElementById('status'); if(s) s.textContent=e.data.value; }
                 });
                 </script>
             </body></html>`;
             panel.webview.html = htmlTest;
             panel.webview.onDidReceiveMessage(msg => {
+                        try { logDiag('testConsole.message', { kind: msg.kind, q: !!msg.question }); } catch {}
                         // Por ahora eco simple; se podría integrar con agente para respuestas automáticas
-                        if(msg.kind==='a2b' && !msg.question){ panel.webview.postMessage({ kind:'a2b', value: 'ACK A:'+ msg.value.slice(0,60) }); }
-                        if(msg.kind==='b2a' && !msg.question){ panel.webview.postMessage({ kind:'b2a', value: 'ACK B:'+ msg.value.slice(0,60) }); }
+                const session = _testConsoleSessions.get(panel.id);
+                const push = (entry) => { if(session){ session.transcript.push(entry); } };
+                if(msg.kind==='a2b'){
+                    push({ from:'A', to:'B', text:msg.value, question:!!msg.question, ts:Date.now() });
+                    if(!msg.question){ panel.webview.postMessage({ kind:'a2b', value: 'ACK A:'+ msg.value.slice(0,60) }); push({ from:'SYS', to:'A', text:'ACK A:'+msg.value.slice(0,60), ts:Date.now() }); }
+                    else if(isAutoResponderEnabled(panel)) { handleAutoAnswer(panel, 'B', msg.value, session); }
+                }
+                if(msg.kind==='b2a'){
+                    push({ from:'B', to:'A', text:msg.value, question:!!msg.question, ts:Date.now() });
+                    if(!msg.question){ panel.webview.postMessage({ kind:'b2a', value: 'ACK B:'+ msg.value.slice(0,60) }); push({ from:'SYS', to:'B', text:'ACK B:'+msg.value.slice(0,60), ts:Date.now() }); }
+                    else if(isAutoResponderEnabled(panel)) { handleAutoAnswer(panel, 'A', msg.value, session); }
+                }
+                if(msg.kind==='export'){
+                    exportTranscript(panel).catch(e=> panel.webview.postMessage({ kind:'status', value:'Error export: '+e.message }));
+                }
+                if(msg.kind==='clear'){
+                    if(session) session.transcript = [];
+                }
                 });
+            panel.onDidDispose(()=>{ _testConsoleSessions.delete(panel.id); });
     });
     const testKeyCmd = vscode.commands.registerCommand('copilotChief.testApiKey', async () => {
         const k = await apiKeyStore.getApiKey();
@@ -198,7 +281,7 @@ function activate(context) {
     const regenCmd = vscode.commands.registerCommand('copilotChief.regeneratePlan', () => regeneratePlan());
     const nextCmd = vscode.commands.registerCommand('copilotChief.nextStep', () => manualAdvanceStep());
 
-    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, testConsoleCmd, output, activity);
+    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, testConsoleCmd, output, activity, diagOpenCmd, diagToggleCmd, dumpStateCmd, snapshotCmd);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeos de actualización omitidos en test para no dejar handles abiertos
@@ -263,9 +346,51 @@ function activate(context) {
                 _timers.push(setInterval(run, interval*1000));
                 output.appendLine('[bridge] Activado polling cada '+interval+'s');
                 logActivity('bridge','poll cycle scheduled '+interval+'s');
+                try { logDiag('bridge.init', { interval }); } catch {}
             }
         } catch(e){ output.appendLine('[bridge] error iniciando bridge: '+e.message); }
     }
+}
+
+function isAutoResponderEnabled(panel){
+    // Query webview state by sending a script snippet? Simpler: we toggle via last message; for now assume checkbox state tracked by DOM not accessible.
+    // Workaround: we embed a hidden state send when user toggles - not implemented yet: treat always enabled if API key exists.
+    // Future improvement: add postMessage from webview on toggle. For now we'll skip if no API key.
+    return true; // simplified
+}
+
+async function handleAutoAnswer(panel, targetActor, questionText, session){
+    try {
+        panel.webview.postMessage({ kind:'status', value:'Consultando OpenAI...' });
+        const { askChatGPT } = require('./openaiClient');
+        const cfg = vscode.workspace.getConfiguration('copilotChief');
+        const key = cfg.get('openaiApiKey') || process.env.OPENAI_API_KEY || '';
+        if(!key){ panel.webview.postMessage({ kind:'status', value:'Sin API Key' }); return; }
+        // Build short context from last 6 exchanges
+        const recent = (session?.transcript||[]).slice(-6).map(e=>`${e.from}->${e.to}: ${e.text}`).join('\n');
+        const answer = await askChatGPT(`Eres un asistente técnico conciso. Conversación reciente:\n${recent}\nPregunta dirigida a ${targetActor}: ${questionText}\nResponde en <=4 líneas.`);
+        panel.webview.postMessage({ kind: targetActor==='A' ? 'a2b' : 'b2a', value: answer.trim() });
+        panel.webview.postMessage({ kind:'auto', value: answer.trim() });
+        session.transcript.push({ from:'AI', to:targetActor, text:answer.trim(), ts:Date.now() });
+        panel.webview.postMessage({ kind:'status', value:'Listo' });
+    } catch(e){ panel.webview.postMessage({ kind:'status', value:'Error AI: '+e.message }); }
+}
+
+async function exportTranscript(panel){
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if(!root) throw new Error('Sin workspace');
+    const session = _testConsoleSessions.get(panel.id);
+    if(!session || !session.transcript.length) throw new Error('Nada que exportar');
+    const exporter = require('./testConsoleExporter');
+    const md = exporter.formatTranscriptMD(session.transcript);
+    const fileName = 'test-console-'+ new Date().toISOString().replace(/[:T]/g,'-').slice(0,19) + '.md';
+    const filePath = path.join(root, '.copilot-chief', fileName);
+    fs.mkdirSync(path.dirname(filePath), { recursive:true });
+    fs.writeFileSync(filePath, md, 'utf8');
+    panel.webview.postMessage({ kind:'status', value:'Exportado '+fileName });
+    vscode.window.showInformationMessage('Transcript exportado: '+fileName);
+    const doc = await vscode.workspace.openTextDocument(filePath);
+    vscode.window.showTextDocument(doc, { preview:false });
 }
 
 function scheduleUpdateChecks(cfg, output) {
@@ -703,6 +828,7 @@ function downloadAndInstall(url, name, output, versionHint) {
 }
 
 function deactivate() {
+    try { logDiag('lifecycle.deactivate', {}); } catch {}
     while (_timers.length) {
         const t = _timers.pop();
         try { clearTimeout(t); clearInterval(t); } catch {}

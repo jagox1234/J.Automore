@@ -5,6 +5,7 @@ const { askChatGPT } = require('./openaiClient');
 const { saveMemory, loadMemory } = require('./memoryManager');
 const { nextStep, markStepComplete } = require('./stepManager');
 const cp = require('child_process');
+const { logDiag } = require('./diagnostics');
 
 let workspaceRootPath = '';
 let projectContext = '';
@@ -23,6 +24,7 @@ async function startAgent(objective) {
   if (planning) return;
   if (paused) paused = false; // reset pause on fresh start
   planning = true;
+  try { logDiag('agent.start', { objectiveLength: (objective||'').length }); } catch {}
   running = false;
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (!workspaceFolders) {
@@ -35,11 +37,13 @@ async function startAgent(objective) {
 
   vscode.window.setStatusBarMessage('Copilot Chief: Escaneando proyecto...', 3000);
   projectContext = scanProject(workspaceRootPath);
+  try { logDiag('agent.scanned', { contextLength: (projectContext||'').length }); } catch {}
 
   vscode.window.setStatusBarMessage('Copilot Chief: Generando plan con OpenAI...', 4000);
   const max = vscode.workspace.getConfiguration('copilotChief').get('maxPlanSteps') || 15;
   const plan = await askChatGPT(`Eres un agente jefe que coordina a GitHub Copilot.\nObjetivo: ${objective}\nDevuelve una lista numerada de pasos concretos (máx ${max}) y orientada a commits atómicos.\nProyecto:\n${projectContext}`);
   steps = plan.split(/\n+/).map(s => s.replace(/^\d+[). -]\s*/, '').trim()).filter(Boolean).slice(0, max);
+  try { logDiag('agent.plan.created', { steps: steps.length }); } catch {}
 
   const mem = { objective, steps, completed: [], startedAt: new Date().toISOString() };
   saveMemory(workspaceRootPath, mem);
@@ -47,16 +51,19 @@ async function startAgent(objective) {
   vscode.window.showInformationMessage('Agente iniciado. Plan creado (' + steps.length + ' pasos).');
   planning = false;
   running = true;
+  try { logDiag('agent.running', { steps: steps.length }); } catch {}
   executeNextStep();
 }
 
 async function executeNextStep() {
   if (paused) { return; }
+  try { logDiag('agent.nextStep.attempt', {}); } catch {}
   const mem = loadMemory(workspaceRootPath);
   const step = nextStep(steps, mem.completed || []);
   if (!step) {
     vscode.window.showInformationMessage('Copilot Chief: Objetivo completado.');
   running = false;
+  try { logDiag('agent.completed', {}); } catch {}
     return;
   }
   if (step === _lastStepId) {
@@ -68,6 +75,7 @@ async function executeNextStep() {
   if (_repeatCounter > 5) {
     vscode.window.showWarningMessage('Copilot Chief: detectado bucle en el mismo paso, abortando.');
     running = false;
+  try { logDiag('agent.loopAbort', { step }); } catch {}
     return;
   }
   // Si confirmEachStep está activo y ya hemos insertado uno, esperar confirmación manual antes de avanzar
@@ -80,6 +88,7 @@ async function executeNextStep() {
   await editor.edit(editBuilder => {
     editBuilder.insert(editor.selection.active, `\n// Copilot Chief Paso: ${step}\n// Implementa este paso. Si necesitas aclaración, formula una pregunta.\n`);
   });
+  try { logDiag('agent.step.inserted', { step }); } catch {}
 
   currentStep = step;
   if (activeListener) { activeListener.dispose(); }
@@ -98,6 +107,7 @@ async function executeNextStep() {
 
     // Detect pregunta
   if (/[?¿]/.test(text) || /que\s+hago|como\s+hacer/i.test(text)) {
+  try { logDiag('agent.question.detected', { step, snippet: text.slice(0,120) }); } catch {}
   const answer = await askChatGPT(`Objetivo global: ${objectiveGlobal}\nContexto:\n${projectContext}\nPregunta de Copilot o duda detectada en el código:\n${text}\nResponde de forma precisa en máximo 6 líneas y si procede da un mini ejemplo.`);
       await editor.edit(b => b.insert(editor.selection.active, `\n// Respuesta del Agente: ${answer.replace(/\n/g, ' ')}\n`));
       return;
@@ -105,12 +115,15 @@ async function executeNextStep() {
 
   // Consider code insertion as progress (non-comment)
     markStepComplete(workspaceRootPath, step);
+  try { logDiag('agent.step.completed', { step }); } catch {}
     const autoCommit = vscode.workspace.getConfiguration('copilotChief').get('autoGitCommit');
     if (autoCommit) {
       try {
         await gitCommitStep(step);
+    try { logDiag('agent.git.commit.ok', { step }); } catch {}
         await editor.edit(b => b.insert(editor.selection.active, `\n// Copilot Chief: Paso completado y commit creado. Avanzando...\n`));
       } catch (e) {
+    try { logDiag('agent.git.commit.error', { step, error: e.message }); } catch {}
         await editor.edit(b => b.insert(editor.selection.active, `\n// Copilot Chief: Paso completado pero falló commit (${e.message}). Avanzando...\n`));
       }
     } else {
@@ -121,6 +134,7 @@ async function executeNextStep() {
       const confirmEach = vscode.workspace.getConfiguration('copilotChief').get('confirmEachStep');
       if (confirmEach) {
         waitingManual = true;
+  try { logDiag('agent.waitingManual', { step }); } catch {}
         vscode.window.showInformationMessage('Paso completado. Usa "Copilot Chief: Siguiente Paso" para continuar.');
       } else {
         executeNextStep();
@@ -173,10 +187,12 @@ function pauseAgent(){
   if (!running) { vscode.window.showInformationMessage('Agente no está en ejecución.'); return; }
   paused = true;
   vscode.window.showInformationMessage('Copilot Chief: Pausado.');
+  try { logDiag('agent.paused', {}); } catch {}
 }
 function resumeAgent(){
   if (!paused) { vscode.window.showInformationMessage('Agente no está pausado.'); return; }
   paused = false;
+  try { logDiag('agent.resumed', {}); } catch {}
   // seguir con el siguiente paso si no está completado todo
   const mem = loadMemory(workspaceRootPath);
   const remainingCount = steps.length - (mem.completed||[]).length;
@@ -191,6 +207,7 @@ function resumeAgent(){
 function stopAgent(){
   if(!running && !planning){ vscode.window.showInformationMessage('Agente ya está detenido.'); return; }
   planning = false; running = false; paused = false; waitingManual = false; currentStep = null;
+  try { logDiag('agent.stopped', {}); } catch {}
   if (activeListener) { try { activeListener.dispose(); } catch {} activeListener = null; }
   vscode.window.showInformationMessage('Copilot Chief: Agente detenido.');
 }
@@ -204,12 +221,14 @@ function skipCurrentStep(){
   waitingManual = false;
   vscode.window.showInformationMessage('Paso saltado.');
   executeNextStep();
+  try { logDiag('agent.step.skipped', {}); } catch {}
 }
 
 async function regeneratePlan(){
   if(!workspaceRootPath || !objectiveGlobal){ vscode.window.showWarningMessage('No hay plan activo para regenerar.'); return; }
   if(planning){ vscode.window.showInformationMessage('Ya se está planificando.'); return; }
   planning = true;
+  try { logDiag('agent.plan.regenerating', {}); } catch {}
   vscode.window.showInformationMessage('Regenerando plan...');
   const max = vscode.workspace.getConfiguration('copilotChief').get('maxPlanSteps') || 15;
   const plan = await askChatGPT(`Regenera un plan de pasos numerados (máx ${max}) refinado basándote en que ya existen commits y contexto actual. Objetivo: ${objectiveGlobal}. Manten pasos atómicos.`);
@@ -223,8 +242,10 @@ async function regeneratePlan(){
     mem.steps = steps;
     saveMemory(workspaceRootPath, mem);
     vscode.window.showInformationMessage('Plan regenerado ('+steps.length+' pasos totales).');
+  try { logDiag('agent.plan.regenerated', { steps: steps.length }); } catch {}
   } else {
     vscode.window.showWarningMessage('No se pudo regenerar el plan (respuesta vacía).');
+  try { logDiag('agent.plan.regenEmpty', {}); } catch {}
   }
   planning = false;
   if(running && !paused && !waitingManual) executeNextStep();
