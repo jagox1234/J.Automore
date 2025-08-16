@@ -67,6 +67,10 @@
       {
         "command": "copilotChief.openRequests",
         "title": "Copilot Chief: Abrir Solicitudes (Command Bridge)"
+      },
+      {
+        "command": "copilotChief.console",
+        "title": "Copilot Chief: Consola de Actividad"
       }
     ],
     "configuration": {

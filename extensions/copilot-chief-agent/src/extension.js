@@ -13,6 +13,11 @@ const cp = require('child_process');
 
 function activate(context) {
     const output = vscode.window.createOutputChannel('Copilot Chief');
+    const activity = vscode.window.createOutputChannel('Copilot Chief Activity');
+    const logActivity = (type, msg) => {
+        const ts = new Date().toISOString().slice(11,19);
+        activity.appendLine(`[${ts}] [${type}] ${msg}`);
+    };
     output.appendLine('[activate] Iniciando extensión Copilot Chief');
     apiKeyStore.init(context);
     const disposable = vscode.commands.registerCommand('copilotChief.startAgent', async () => {
@@ -63,6 +68,9 @@ function activate(context) {
     const openRequests = vscode.commands.registerCommand('copilotChief.openRequests', () => {
         if(!vscode.workspace.workspaceFolders){ return vscode.window.showWarningMessage('Abre una carpeta para usar el bridge.'); }
         openBridgeFile(vscode.workspace.workspaceFolders[0].uri.fsPath);
+    });
+    const consoleCmd = vscode.commands.registerCommand('copilotChief.console', () => {
+        activity.show(true);
     });
     const testKeyCmd = vscode.commands.registerCommand('copilotChief.testApiKey', async () => {
         const k = await apiKeyStore.getApiKey();
@@ -140,7 +148,7 @@ function activate(context) {
     const regenCmd = vscode.commands.registerCommand('copilotChief.regeneratePlan', () => regeneratePlan());
     const nextCmd = vscode.commands.registerCommand('copilotChief.nextStep', () => manualAdvanceStep());
 
-    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, output);
+    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, output, activity);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeos de actualización omitidos en test para no dejar handles abiertos
@@ -200,10 +208,11 @@ function activate(context) {
             if(cfg.get('enableCommandBridge')){
                 const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
                 const interval = Math.max(5, parseInt(cfg.get('commandPollingSeconds')||15,10));
-                const run = () => processBridge(root, output);
+                const run = () => processBridge(root, output, logActivity);
                 run();
                 _timers.push(setInterval(run, interval*1000));
                 output.appendLine('[bridge] Activado polling cada '+interval+'s');
+                logActivity('bridge','poll cycle scheduled '+interval+'s');
             }
         } catch(e){ output.appendLine('[bridge] error iniciando bridge: '+e.message); }
     }

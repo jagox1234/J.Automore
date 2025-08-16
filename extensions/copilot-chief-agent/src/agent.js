@@ -88,7 +88,12 @@ async function executeNextStep() {
     const change = event.contentChanges[0];
     if (!change) return;
     const text = change.text;
-    if (!text.trim()) return;
+    if (!text.trim()) return; // ignore whitespace
+    const trimmed = text.trim();
+    // Ignore pure comment lines (js/ts style) for completion trigger
+    if (/^\/\//.test(trimmed) || /^\/\*/.test(trimmed)) {
+      return; // do not mark complete on comments alone
+    }
   if (paused) { return; }
 
     // Detect pregunta
@@ -98,7 +103,7 @@ async function executeNextStep() {
       return;
     }
 
-    // Consider code insertion as progress
+  // Consider code insertion as progress (non-comment)
     markStepComplete(workspaceRootPath, step);
     const autoCommit = vscode.workspace.getConfiguration('copilotChief').get('autoGitCommit');
     if (autoCommit) {

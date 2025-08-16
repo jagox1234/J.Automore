@@ -1,3 +1,10 @@
+## v0.1.49 - 2025-08-16
+### Added
+* Consola de actividad (`Copilot Chief: Abrir Consola`) mostrando eventos del bridge y ciclos de polling.
+
+### Changed
+* Listener de pasos ahora ignora líneas que son solo comentarios o whitespace antes de marcar un paso como completado.
+
 ## v0.1.48 - 2025-08-16
 ### Added
 * Notificaciones del Command Bridge al completar / fallar / rechazar (`commandBridgeNotify`).

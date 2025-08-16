@@ -50,7 +50,7 @@ function decide(request, cfg, context){
 // Simple in-memory context to track recent executions (not persisted across reloads)
 const _bridgeContext = { recent:{} };
 
-async function processBridge(root, output){
+async function processBridge(root, output, activityCb){
   const cfg = vscode.workspace.getConfiguration('copilotChief');
   if(!cfg.get('enableCommandBridge')) return;
   const reqs = loadRequests(root);
@@ -70,7 +70,7 @@ async function processBridge(root, output){
           }
         }
       }
-      if(before !== reqs.length){ output.appendLine('[bridge] purged '+(before-reqs.length)+' old entries'); }
+  if(before !== reqs.length){ output.appendLine('[bridge] purged '+(before-reqs.length)+' old entries'); if(activityCb) activityCb('bridge','purged '+(before-reqs.length)+' old entries'); }
     }
   } catch{}
   const maxConcurrent = parseInt(cfg.get('maxConcurrentBridgeCommands')||1,10);
@@ -93,15 +93,18 @@ async function processBridge(root, output){
       req.status='running'; req.decision='confirm'; req.startedAt=new Date().toISOString(); req.updatedAt=req.startedAt; changed=true; saveRequests(root, reqs);
       try {
         output.appendLine('[bridge] ejecutando: '+sanitized);
+        if(activityCb) activityCb('bridge','exec '+sanitized);
         const exec = require('child_process').exec;
         await new Promise((resolve)=>{
           exec(sanitized, { cwd: root, timeout: timeoutMs }, (err, stdout, stderr)=>{
             if(err){
               const timedOut = err.killed && /ETIMEDOUT|timeout/i.test(err.message);
               req.status='error'; req.result = (stderr && stderr.trim()) || (timedOut ? 'timeout' : err.message);
+              if(activityCb) activityCb('bridge','error '+sanitized+' -> '+req.result.split(/\r?\n/)[0]);
             } else {
               req.status='done'; req.result = summarize(stdout, cfg);
               _bridgeContext.recent[req.command] = Date.now();
+              if(activityCb) activityCb('bridge','done '+sanitized);
             }
             req.finishedAt=new Date().toISOString();
             req.updatedAt=req.finishedAt;
@@ -123,6 +126,7 @@ async function processBridge(root, output){
             if(r.status==='done') vscode.window.showInformationMessage('Bridge ✅ '+r.command+' -> '+preview);
             else if(r.status==='error') vscode.window.showErrorMessage('Bridge ❌ '+r.command+' -> '+preview);
             else if(r.status==='rejected') vscode.window.showWarningMessage('Bridge ⚠ '+r.command+' -> '+preview);
+            if(activityCb) activityCb('bridge','notify '+r.status+' '+r.command+' '+preview);
             r._notified = true;
           }
         }
