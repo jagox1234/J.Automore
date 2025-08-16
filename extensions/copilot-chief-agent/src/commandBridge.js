@@ -101,7 +101,6 @@ async function processBridge(root, output){
               req.status='error'; req.result = (stderr && stderr.trim()) || (timedOut ? 'timeout' : err.message);
             } else {
               req.status='done'; req.result = summarize(stdout, cfg);
-              // record recent execution timestamp for cooldown
               _bridgeContext.recent[req.command] = Date.now();
             }
             req.finishedAt=new Date().toISOString();
@@ -112,7 +111,24 @@ async function processBridge(root, output){
       } catch(e){ req.status='error'; req.result=e.message; req.updatedAt=new Date().toISOString(); changed=true; }
     }
   }
-  if(changed) saveRequests(root, reqs);
+  if(changed) {
+    saveRequests(root, reqs);
+    // Notifications (lightweight) after persisting
+    if(cfg.get('commandBridgeNotify')){
+      try {
+        for(const r of reqs){
+          if(r._notified) continue; // avoid duplicates
+          if(['done','error','rejected'].includes(r.status)){
+            const preview = (r.result||'').split(/\r?\n/)[0];
+            if(r.status==='done') vscode.window.showInformationMessage('Bridge ✅ '+r.command+' -> '+preview);
+            else if(r.status==='error') vscode.window.showErrorMessage('Bridge ❌ '+r.command+' -> '+preview);
+            else if(r.status==='rejected') vscode.window.showWarningMessage('Bridge ⚠ '+r.command+' -> '+preview);
+            r._notified = true;
+          }
+        }
+      } catch{}
+    }
+  }
 }
 
 function summarize(text, cfg){

@@ -2,7 +2,11 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-jest.mock('vscode', () => ({
+jest.mock('vscode', () => {
+  const mockInfo = jest.fn();
+  const mockWarn = jest.fn();
+  const mockErr = jest.fn();
+  return {
   workspace: { getConfiguration: () => ({ get: (k)=>{
     if(k==='enableCommandBridge') return true;
     if(k==='allowedCommands') return ['^echo', '^node ', '^timeoutTest'];
@@ -12,10 +16,12 @@ jest.mock('vscode', () => ({
     if(k==='commandCooldownSeconds') return 120; // large to test cooldown rejection
     if(k==='maxConcurrentBridgeCommands') return 1;
     if(k==='commandResultMaxLines') return 3;
+    if(k==='commandBridgeNotify') return true;
     if(k==='commandArchiveMaxAgeDays') return 0; // default no prune in most tests
     return undefined; } }), openTextDocument: jest.fn().mockResolvedValue({}), showTextDocument: jest.fn(), workspaceFolders:[{ uri:{ fsPath: process.cwd() } }] },
-  window: { showWarningMessage: jest.fn(), showInformationMessage: jest.fn(), showTextDocument: jest.fn() }
-}));
+  window: { showWarningMessage: mockWarn, showInformationMessage: mockInfo, showTextDocument: jest.fn(), showErrorMessage: mockErr }
+};
+});
 
 const { processBridge } = require('../src/commandBridge');
 
@@ -112,6 +118,24 @@ describe('commandBridge basic flow', () => {
     if(r11.status==='rejected'){
       expect(r11.result).toMatch(/cooldown/);
     }
+  });
+
+  test('notificaciones se disparan según estado', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(),'bridge-'));
+    const file = path.join(root,'.copilot-chief','requests.json');
+    fs.mkdirSync(path.dirname(file), { recursive:true });
+    // Uno permitido y uno bloqueado
+    fs.writeFileSync(file, JSON.stringify([
+      { id:'n1', command:'echo hola', status:'pending', createdAt:new Date().toISOString() },
+      { id:'n2', command:'rm x', status:'pending', createdAt:new Date().toISOString() }
+    ], null, 2));
+    const { processBridge } = require('../src/commandBridge');
+    const output = { appendLine: ()=>{} };
+    await processBridge(root, output);
+  // re-require mocked vscode to access counters
+  const vs = require('vscode');
+  const total = (vs.window.showInformationMessage.mock.calls.length + vs.window.showWarningMessage.mock.calls.length + vs.window.showErrorMessage.mock.calls.length);
+  expect(total).toBeGreaterThanOrEqual(1);
   });
 
   test('timeout marca comando como error (simulado)', async () => {

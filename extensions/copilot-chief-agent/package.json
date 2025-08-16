@@ -164,6 +164,11 @@
           "type": "number",
           "default": 3,
           "description": "Días después de los cuales una entry (done/error/rejected) se elimina del requests.json para evitar crecimiento infinito (0=desactiva)."
+        },
+        "copilotChief.commandBridgeNotify": {
+          "type": "boolean",
+          "default": true,
+          "description": "Muestra notificaciones al completar (done/error) o rechazar (rejected) comandos del bridge."
         }
       }
     }

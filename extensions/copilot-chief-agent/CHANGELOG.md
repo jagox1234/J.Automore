@@ -1,3 +1,10 @@
+## v0.1.48 - 2025-08-16
+### Added
+* Notificaciones del Command Bridge al completar / fallar / rechazar (`commandBridgeNotify`).
+
+### Changed
+* Cobertura estable tras agregar tests de notificaciones.
+
 ## v0.1.46 - 2025-08-16
 ### Added
 * Command Bridge: pruning de entries antiguas configurable (`commandArchiveMaxAgeDays`).
