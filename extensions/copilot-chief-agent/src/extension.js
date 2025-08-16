@@ -50,6 +50,11 @@ function activate(context) {
     const manualUpdate = vscode.commands.registerCommand('copilotChief.checkUpdates', () => {
         checkForUpdate(output, context);
     });
+    const forceUpdate = vscode.commands.registerCommand('copilotChief.forceUpdateNow', async () => {
+        output.appendLine('[force-update] Forzando verificación + instalación');
+        await checkForUpdate(output, { silentInstall: true, force: true });
+        vscode.window.showInformationMessage('Forzado ciclo de actualización (si había versión nueva).');
+    });
     const statusPanel = vscode.commands.registerCommand('copilotChief.statusPanel', () => openStatusPanel(context));
     const testKeyCmd = vscode.commands.registerCommand('copilotChief.testApiKey', async () => {
         const k = await apiKeyStore.getApiKey();
@@ -113,7 +118,7 @@ function activate(context) {
         if (sel) vscode.commands.executeCommand(sel.cmd);
     });
 
-    context.subscriptions.push(disposable, manualUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, output);
+    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, output);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeo de actualización
@@ -398,7 +403,7 @@ function checkForUpdate(output, opts={}) {
                     const tag = json.tag_name || '';
                     const latestVer = (asset && /copilot-chief-agent-(\d+\.\d+\.\d+)\.vsix/.exec(asset.name))?.[1] || tag.replace(/^.*v/, '');
                     output.appendLine(`[update] Versión local ${current} - remota ${latestVer}`);
-                                if (latestVer && isNewer(latestVer, current) && asset) {
+                                if (asset && (opts.force || (latestVer && isNewer(latestVer, current)))) {
                                                 if (opts.silentInstall) {
                                     output.appendLine('[update] Nueva versión ' + latestVer + ' detectada. Instalación silenciosa...');
                                     downloadAndInstall(asset.browser_download_url, asset.name, output, latestVer).finally(resolve);
