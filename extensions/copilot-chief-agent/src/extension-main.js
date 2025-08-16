@@ -189,6 +189,9 @@ function scheduleAutoUpdateChecks(context){
   const poll=cfg.get('updatePollMinutes');
   if(poll===0){ pushLiveFeed('update.info','Auto update polling desactivado'); return; }
   const minutes=Math.max(1, poll||15);
+  // Intento de instalación automática inmediato (forceInstall) para asegurar actualización sin intervención
+  setTimeout(()=>checkForUpdates({manual:false, force:false, forceInstall:true}), 5000);
+  // Chequeo normal (notificación / autoInstall según configuración)
   setTimeout(()=>checkForUpdates({manual:false}), 8000);
   _updateInterval=setInterval(()=>checkForUpdates({manual:false}), minutes*60000);
   context.subscriptions.push({ dispose(){ try{ clearInterval(_updateInterval);}catch{} } });
