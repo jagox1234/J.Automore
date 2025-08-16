@@ -7,10 +7,6 @@
   "engines": { "vscode": "^1.90.0" },
   "categories": ["Other"],
   "activationEvents": [
-    "onCommand:copilotBridge.openChatPanel",
-    "onCommand:copilotBridge.reindex",
-    "onCommand:copilotBridge.summarizeMemory",
-    "onCommand:copilotBridge.showMetrics"
   ],
   "main": "./dist/extension.js",
   "contributes": {

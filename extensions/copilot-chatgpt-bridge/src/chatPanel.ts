@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { openaiClient } from './openaiClient';
+import { askChatGPT } from './openaiClient';
 
 interface ChatItem { role: 'user' | 'assistant'; content: string; timestamp: number; }
 
@@ -26,7 +26,7 @@ export class ChatPanel {
   private constructor(panel: vscode.WebviewPanel, context: vscode.ExtensionContext) {
     this.panel = panel;
     this.panel.webview.html = this.render();
-    this.panel.webview.onDidReceiveMessage(async msg => {
+  this.panel.webview.onDidReceiveMessage(async (msg: any) => {
       if (msg.type === 'setGoal') {
         this.goal = msg.value;
         this.append('user', `OBJETIVO: ${this.goal}`);
@@ -93,7 +93,7 @@ export class ChatPanel {
   private async seedGoal() {
     if (!this.goal) return;
     const system = [{ role: 'user' as const, content: `Estructura el objetivo en pasos numerados y primera instrucción para empezar: ${this.goal}` }];
-    const answer = await openaiClient.ask(system);
+  const answer = await askChatGPT(system[0].content);
     this.append('assistant', answer.trim());
     this.insertInEditor(`// OBJETIVO:\n// ${this.goal}\n// PASOS INICIALES:\n${answer.split('\n').map(l => '// ' + l).join('\n')}`);
   }
@@ -101,7 +101,7 @@ export class ChatPanel {
   private async handleUserPrompt(prompt: string) {
     if (!prompt) return;
     this.append('user', prompt);
-    const answer = await openaiClient.ask(this.lastN(12));
+  const answer = await askChatGPT(prompt);
     this.append('assistant', answer.trim());
     this.insertInEditor(this.wrapAnswer(answer));
   }
@@ -109,7 +109,7 @@ export class ChatPanel {
   public async handleCopilotQuestion(text: string) {
     if (!this.autoMode) return;
     this.append('user', '[Copilot] ' + text.trim());
-    const answer = await openaiClient.ask(this.lastN(12));
+  const answer = await askChatGPT(text);
     this.append('assistant', answer.trim());
     this.insertInEditor(this.wrapAnswer(answer));
   }

@@ -5,13 +5,28 @@ import { getGlobalContext } from './extension';
 export function activateChatPanel(context: vscode.ExtensionContext) {
   const panel = vscode.window.createWebviewPanel('chatgptProjectLeader', 'ChatGPT Project Leader', vscode.ViewColumn.Beside, { enableScripts: true });
   panel.webview.html = getHtml();
-  panel.webview.onDidReceiveMessage(async (msg) => {
+  interface SendObjectiveMessage {
+    command: 'sendObjective';
+    text: string;
+  }
+
+  interface ShowPlanMessage {
+    command: 'showPlan';
+    text: string;
+  }
+
+  type PanelMessage = SendObjectiveMessage;
+
+  panel.webview.onDidReceiveMessage(async (msg: PanelMessage) => {
     if (msg.command === 'sendObjective') {
-      const plan = await askChatGPT('Divide este objetivo en pasos para Copilot:\n' + msg.text, getGlobalContext());
-      panel.webview.postMessage({ command: 'showPlan', text: plan });
+      const plan: string = await askChatGPT('Divide este objetivo en pasos para Copilot:\n' + msg.text);
+      panel.webview.postMessage({ command: 'showPlan', text: plan } as ShowPlanMessage);
       const editor = vscode.window.activeTextEditor;
       if (editor) {
-        editor.edit(edit => edit.insert(editor.selection.active, '\n// PLAN INICIAL\n' + plan.split('\n').map(l => '// ' + l).join('\n') + '\n'));
+        editor.edit((edit: vscode.TextEditorEdit) => {
+          const planComment: string = '\n// PLAN INICIAL\n' + plan.split('\n').map((l: string) => '// ' + l).join('\n') + '\n';
+          edit.insert(editor.selection.active, planComment);
+        });
       }
     }
   });

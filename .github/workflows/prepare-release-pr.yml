@@ -53,7 +53,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          head: ${{ steps.prepare.outputs.branch || format('release/agent-v{0}', steps.bump.outputs.new) }}
+          head: ${{ steps.create_branch_and_commit.outputs.branch || format('release/agent-v{0}', steps.bump.outputs.new) }}
           base: main
           title: "chore(agent): release v${{ steps.bump.outputs.new }}"
           body: "Auto PR para publicar v${{ steps.bump.outputs.new }}"
