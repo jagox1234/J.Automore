@@ -13,7 +13,6 @@ permissions:
 
 jobs:
   package:
-    if: ${{ !contains(github.event.head_commit.message, '[skip-agent]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -44,6 +43,14 @@ jobs:
         id: bump
         run: |
           set -e
+          LAST_MSG=$(git log -1 --pretty=%B | tr -d '\r')
+          echo "Último commit: $LAST_MSG"
+          if echo "$LAST_MSG" | grep -qi 'auto bump version'; then
+            echo "Detectado commit de auto bump previo; evitando bump recursivo."
+            CURR=$(jq -r .version extensions/copilot-chief-agent/package.json)
+            echo "version=$CURR" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           CURR=${{ steps.meta.outputs.current }}
           # Siempre incrementar patch para cada ejecución (release por cambio)
           # Antes: si existía el tag se saltaba el bump, lo que impedía nuevas versiones y por eso no se veía actualización.
@@ -57,7 +64,7 @@ jobs:
           git config user.name 'agent-bot'
           git config user.email 'agent-bot@users.noreply.github.com'
           git add extensions/copilot-chief-agent/package.json
-          git commit -m "chore(agent): auto bump version to $NEW [skip-agent]" || echo 'No commit'
+          git commit -m "chore(agent): auto bump version to $NEW" || echo 'No commit'
           git push || echo 'Push skipped'
 
       - name: Install dependencies (extension)
