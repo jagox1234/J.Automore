@@ -861,3 +861,7 @@
 ## v0.1.42 - 2025-08-16
 * feat(command-bridge): puente de comandos con polling y tests (b2c816b)
 
+## v0.1.46 - 2025-08-16
+* feat(command-bridge): cooldown, timeout configurable, concurrencia y max lines (e8d06ee)
+* chore(agent): set version 0.1.42 (post-release bump) (1adb9c8)
+
