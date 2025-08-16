@@ -404,20 +404,21 @@ async function initStatusBars(context){
             statusBarAgent.tooltip = `Estado del Agente\nObjetivo: ${st.objective || '—'}`;
             statusBarAgent.show();
             // Control button (pause/resume)
-            if (st.running || st.paused) {
-                if (st.paused) {
-                    statusBarControl.text = '$(play)';
-                    statusBarControl.tooltip = 'Reanudar Agente';
-                    statusBarControl.command = 'copilotChief.resumeAgent';
-                } else {
-                    statusBarControl.text = '$(debug-pause)';
-                    statusBarControl.tooltip = 'Pausar Agente';
-                    statusBarControl.command = 'copilotChief.pauseAgent';
-                }
-                statusBarControl.show();
+            // Siempre visible: estado según ejecución
+            if (st.paused) {
+                statusBarControl.text = '$(play)';
+                statusBarControl.tooltip = 'Reanudar Agente';
+                statusBarControl.command = 'copilotChief.resumeAgent';
+            } else if (st.running) {
+                statusBarControl.text = '$(debug-pause)';
+                statusBarControl.tooltip = 'Pausar Agente';
+                statusBarControl.command = 'copilotChief.pauseAgent';
             } else {
-                statusBarControl.hide();
+                statusBarControl.text = '$(play)';
+                statusBarControl.tooltip = 'Iniciar Agente';
+                statusBarControl.command = 'copilotChief.startAgent';
             }
+            statusBarControl.show();
         } catch (e) {
             statusBarAgent.text = 'Chief: Err';
             statusBarAgent.tooltip = e.message;
