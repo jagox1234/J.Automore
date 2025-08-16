@@ -966,3 +966,25 @@
 ## v0.1.56 - 2025-08-16
 * feat(ui): feed en vivo visual para eventos agente y bridge (v0.1.55) (51ee8e7)
 
+## v0.1.57 - 2025-08-16
+* feat(qol): quick status, codelens pasos, feed filtros + config (v0.1.56) (34e6c45)
+* chore(agent): set version 0.1.56 (post-release bump) (b504ef9)
+* feat(ui): feed en vivo visual para eventos agente y bridge (v0.1.55) (51ee8e7)
+* chore(agent): set version 0.1.55 (post-release bump) (abc85a8)
+* feat(agent): sandbox fallback para mostrar pasos cuando no hay editor abierto (fec47b8)
+* chore(agent): set version 0.1.54 (post-release bump) (3b0d8ac)
+* feat(bridge): auto enqueue pipeline command (v0.1.53) (0d2e60f)
+* chore(agent): set version 0.1.53 (post-release bump) (86fa7d6)
+* feat(diagnostics): verbose instrumentation, snapshot command, coverage threshold adjust (v0.1.52) (e27e87f)
+* chore(agent): set version 0.1.52 (post-release bump) (a6de41e)
+* chore(lint): sanitize sin escapes innecesarios (b7f2927)
+* feat(ui): status bar botones consola actividad y pruebas (v0.1.51) (d5a7f8c)
+* feat(test-console): doble interaccion A-B (v0.1.50) (363f8ea)
+* chore(agent): set version 0.1.50 (post-release bump) (642acca)
+* feat(console): actividad bridge + filtro listener comentarios (v0.1.49) (6288448)
+* chore(agent): set version 0.1.49 (post-release bump) (38624d4)
+* feat(command-bridge): notifications + config (v0.1.48) (e631347)
+* chore(agent): set version 0.1.48 (post-release bump) (c2ea834)
+* docs(changelog): add entries for 0.1.41-0.1.46 (b31c4bd)
+* chore(agent): set version 0.1.47 (post-release bump) (6bfaaca)
+
