@@ -1009,3 +1009,7 @@
 * chore: normalize gpt-test line endings (post redirect fix) (3e9b609)
 * fix(update): follow 3xx redirects in fetchJson (302 issue) (4beb965)
 
+## v0.1.62 - 2025-08-16
+* chore: normalize gpt-test (post auto-install change) (a8175ff)
+* feat(update): force initial auto-install attempt on startup (a2a81bd)
+
