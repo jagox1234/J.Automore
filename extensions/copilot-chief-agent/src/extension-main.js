@@ -7,6 +7,7 @@ const { openBridgeFile, processBridge } = require('./commandBridge');
 const apiKeyStore = require('./apiKeyStore');
 const { initDiagnostics, logDiag, toggleDiagnostics, openDiagnosticsFile } = require('./diagnostics');
 const { StepsTreeDataProvider } = require('./stepsView');
+const https = require('https');
 
 const _timers = [];
 const _isTest = !!process.env.JEST_WORKER_ID;
@@ -23,6 +24,8 @@ function activate(context){
     vscode.commands.registerCommand('copilotChief.quickStatus', ()=>{ try{ const st=agentState(); const done=st.total? (st.total-st.remaining):0; const msg=`Estado: ${st.running?(st.paused?'Pausado':'En ejecución'):(st.planning?'Planificando':'Inactivo')} • Pasos ${done}/${st.total||'—'} • Objetivo: ${st.objective||'—'}`; vscode.window.showInformationMessage(msg);}catch{ vscode.window.showWarningMessage('Estado no disponible'); } }),
 		vscode.commands.registerCommand('copilotChief.liveFeed', openFeed),
 		vscode.commands.registerCommand('copilotChief.exportLiveFeed', exportFeed),
+    vscode.commands.registerCommand('copilotChief.checkUpdates', ()=>runUpdateCheck(false)),
+    vscode.commands.registerCommand('copilotChief.forceUpdateNow', ()=>runUpdateCheck(true)),
     vscode.commands.registerCommand('copilotChief.selfTest', ()=>autoSelfTest(output)),
 		vscode.commands.registerCommand('copilotChief.pauseAgent', ()=>pauseAgent()),
 		vscode.commands.registerCommand('copilotChief.resumeAgent', ()=>resumeAgent()),
@@ -105,6 +108,34 @@ function runDemo(objective, root, output){ if(_demoRunning) return; _demoRunning
 
 // Snapshot
 function snapshot(output){ try{ if(!vscode.workspace.workspaceFolders) return; const root=vscode.workspace.workspaceFolders[0].uri.fsPath; const memPath=path.join(root,'.copilot-chief','state.json'); let memoryRaw='',memoryJson=null; if(fs.existsSync(memPath)){ memoryRaw=fs.readFileSync(memPath,'utf8'); try{memoryJson=JSON.parse(memoryRaw);}catch{} } const diagFile=path.join(root,'.copilot-chief','diagnostics.log'); let diagnosticsTail=''; if(fs.existsSync(diagFile)){ const lines=fs.readFileSync(diagFile,'utf8').trim().split(/\r?\n/); diagnosticsTail=lines.slice(-200).join('\n'); } const bridgeFile=path.join(root,'.copilot-chief','requests.json'); let bridgeRaw=''; if(fs.existsSync(bridgeFile)){ bridgeRaw=fs.readFileSync(bridgeFile,'utf8'); } const st=agentState(); const snap={ ts:new Date().toISOString(), state:st, memory:memoryJson, memoryRawLength:memoryRaw.length, diagnosticsTailLines:(diagnosticsTail.match(/\n/g)||[]).length+(diagnosticsTail?1:0), bridgeRaw }; const outDir=path.join(root,'.copilot-chief','snapshots'); fs.mkdirSync(outDir,{recursive:true}); const file=path.join(outDir,'snapshot-'+new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)+'.json'); fs.writeFileSync(file,JSON.stringify(snap,null,2),'utf8'); vscode.window.showInformationMessage('Snapshot creado: '+path.basename(file)); vscode.workspace.openTextDocument(file).then(d=>vscode.window.showTextDocument(d,{preview:false})); }catch(e){ vscode.window.showErrorMessage('Error snapshot: '+e.message);} }
+
+// Update checker (GitHub Releases simple fetch)
+function runUpdateCheck(force){
+  try{
+    const pkg=require('../package.json');
+    const current=pkg.version;
+    const owner='jagox1234';
+    const repo='J.Automore';
+    const url=`https://raw.githubusercontent.com/${owner}/${repo}/main/extensions/copilot-chief-agent/package.json`;
+    https.get(url,res=>{
+      let data='';
+      res.on('data',d=>data+=d);
+      res.on('end',()=>{
+        try{
+          const remote=JSON.parse(data).version;
+          if(!remote){ vscode.window.showWarningMessage('No se pudo leer versión remota'); return; }
+          if(remote===current){ if(force) vscode.window.showInformationMessage('Ya estás en la última versión '+current); else vscode.window.showInformationMessage('Copilot Chief actualizado ( '+current+' ).'); return; }
+          const msg=`Versión nueva disponible: ${remote} (actual ${current})`;
+          if(force){
+            vscode.window.showInformationMessage(msg+' — descarga manual: git pull');
+          } else {
+            vscode.window.showInformationMessage(msg+' — Usa git pull para actualizar.');
+          }
+        }catch(e){ vscode.window.showErrorMessage('Error parse update: '+e.message); }
+      });
+    }).on('error',err=>vscode.window.showErrorMessage('Error update HTTP: '+err.message));
+  }catch(e){ vscode.window.showErrorMessage('Update check error: '+e.message); }
+}
 
 // Automated self-test: ensures demo mode run, export feed, snapshot
 async function autoSelfTest(output){
