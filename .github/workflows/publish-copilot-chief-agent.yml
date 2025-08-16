@@ -30,6 +30,7 @@ jobs:
       - name: Install tooling
         run: |
           npm install -g @vscode/vsce
+          sudo apt-get update && sudo apt-get install -y jq
 
       - name: Determine next version (post-build bump strategy)
         id: meta
@@ -151,7 +152,8 @@ jobs:
         working-directory: extensions/copilot-chief-agent
         run: |
           rm -f *.vsix || true
-          vsce package --no-yarn
+          if ! command -v vsce >/dev/null 2>&1; then echo 'vsce no instalado' >&2; exit 1; fi
+          vsce package --no-yarn || { echo 'Fallo empaquetando VSIX'; ls -l; exit 1; }
           ls -l *.vsix || true
 
       - name: Debug list repo root

@@ -39,6 +39,7 @@ jobs:
           [ -z "$LOG" ] && LOG='* Cambios menores'
           printf "## v%s - %s\n%s\n\n" "$NEW" "$(date +%Y-%m-%d)" "$LOG" >> extensions/copilot-chief-agent/CHANGELOG.md
       - name: Create branch and commit
+        id: create_branch_and_commit
         run: |
           NEW=${{ steps.bump.outputs.new }}
           BR="release/agent-v$NEW"
@@ -53,7 +54,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          head: ${{ steps.create_branch_and_commit.outputs.branch || format('release/agent-v{0}', steps.bump.outputs.new) }}
+          branch: ${{ steps.create_branch_and_commit.outputs.branch }}
           base: main
           title: "chore(agent): release v${{ steps.bump.outputs.new }}"
           body: "Auto PR para publicar v${{ steps.bump.outputs.new }}"
