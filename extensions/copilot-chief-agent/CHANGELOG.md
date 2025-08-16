@@ -1001,3 +1001,7 @@
 ## v0.1.59 - 2025-08-16
 * docs(governance): add development rules and contributing guide (e9db069)
 
+## v0.1.60 - 2025-08-16
+* chore: normalize gpt-test line endings (c4766de)
+* feat(update): auto install & feed logging for updater (dfce6d6)
+
