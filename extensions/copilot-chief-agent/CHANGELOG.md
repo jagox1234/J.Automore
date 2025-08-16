@@ -818,3 +818,7 @@
 * chore(agent): auto bump version to 0.1.34 [skip-agent] (b124f57)
 * chore(update): añadir diagnósticos instalación auto (vscode CLI) (c540e46)
 
+## v0.1.35 - 2025-08-16
+* chore(agent): auto bump version to 0.1.35 [skip-agent] (239e2fa)
+* fix(update): seguir redirects 302 al descargar VSIX (280ec8e)
+
