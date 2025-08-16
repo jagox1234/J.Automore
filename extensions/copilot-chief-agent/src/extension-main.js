@@ -10,6 +10,7 @@ const { StepsTreeDataProvider } = require('./stepsView');
 // (Removed direct https import; using dynamic require in fetchJson)
 const cp = require('child_process');
 let _updateInterval=null;
+let _lastUpdateCheckTs=0; let _lastUpdateVersionNotified='';
 
 const _timers = [];
 const _isTest = !!process.env.JEST_WORKER_ID;
@@ -119,12 +120,21 @@ async function checkForUpdates(opts={}){
   const { manual=false, force=false, forceInstall=false }=opts;
   const cfg=vscode.workspace.getConfiguration('copilotChief');
   if(!manual && !cfg.get('autoUpdateCheck')) return;
+  const now=Date.now();
+  if(!manual && _lastUpdateCheckTs && (now-_lastUpdateCheckTs) < 60000){ return; } // hard minimum 1 min
+  _lastUpdateCheckTs=now;
   const owner='jagox1234'; const repo='J.Automore';
   let current='?';
   try{ current=require('../package.json').version; }catch{}
+  const acceptPrere=cfg.get('acceptPrereleases');
   let releaseJson=null;
   try{
-    releaseJson=await fetchJson(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);
+    if(acceptPrere){
+      const releases=await fetchJson(`https://api.github.com/repos/${owner}/${repo}/releases`);
+      if(Array.isArray(releases)) releaseJson=releases.find(r=>!r.draft); // first non-draft (includes prerelease)
+    } else {
+      releaseJson=await fetchJson(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);
+    }
   }catch(e){ if(manual) vscode.window.showErrorMessage('Error consultando releases: '+e.message); return; }
   if(!releaseJson || !releaseJson.tag_name){ if(manual) vscode.window.showWarningMessage('No se pudo obtener release tag'); return; }
   const remote=releaseJson.tag_name.replace(/^v/,'');
@@ -133,8 +143,10 @@ async function checkForUpdates(opts={}){
   const body=(releaseJson.body||'').split('\n').slice(0,15).join('\n');
   const silent=cfg.get('autoUpdateSilent');
   if(!forceInstall && !silent && !manual){
-    // only notify silently; user can trigger manual command later
-    vscode.window.showInformationMessage(`[Copilot Chief] Nueva versión ${remote} disponible (actual ${current}). Usa comando Buscar Actualizaciones para instalar.`);
+    if(_lastUpdateVersionNotified!==remote){
+      vscode.window.showInformationMessage(`[Copilot Chief] Nueva versión ${remote} disponible (actual ${current}). Usa comando Buscar Actualizaciones para instalar.`);
+      _lastUpdateVersionNotified=remote;
+    }
     return;
   }
   if(!forceInstall && !silent && manual){
@@ -143,8 +155,15 @@ async function checkForUpdates(opts={}){
     if(pick!=='Instalar') return;
   }
   if(silent || forceInstall || manual){
-    try{ await attemptGitPullUpdate(); vscode.window.showInformationMessage('Actualizado (git pull). Reinicia la ventana si es necesario.'); }
-    catch(e){ vscode.window.showErrorMessage('Fallo al actualizar: '+e.message); }
+    try{
+      const assetInfo = pickVsixAsset(releaseJson.assets||[]);
+      if(assetInfo){
+        await installVsixFromAsset(releaseJson, assetInfo, cfg);
+      } else {
+        await attemptGitPullUpdate();
+        vscode.window.showInformationMessage('Actualizado vía git pull (no VSIX encontrado). Reinicia la ventana si es necesario.');
+      }
+    }catch(e){ vscode.window.showErrorMessage('Fallo al actualizar: '+e.message); }
   }
 }
 
@@ -174,6 +193,62 @@ async function attemptGitPullUpdate(){
     const cwd=vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if(!cwd) return reject(new Error('No workspace')); 
     cp.exec('git pull', { cwd }, (err,stdout,stderr)=>{ if(err) return reject(new Error(stderr.trim()||err.message)); resolve(stdout.trim()); });
+  });
+}
+
+function pickVsixAsset(assets){
+  if(!Array.isArray(assets)) return null;
+  // Prefer .vsix asset
+  let vsix=assets.find(a=>/\.vsix$/i.test(a.name));
+  if(!vsix) return null;
+  // Optional hash file .sha256 with same base
+  const base=vsix.name.replace(/\.vsix$/i,'');
+  const hash=assets.find(a=>new RegExp('^'+escapeRegex(base)+'.*' + '.sha256$','i').test(a.name));
+  return { vsix, hash };
+}
+
+function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+
+async function installVsixFromAsset(release, assetsInfo, cfg){
+  const { vsix, hash }=assetsInfo;
+  if(!vsix.browser_download_url) throw new Error('Asset VSIX sin URL');
+  const tmpDir = require('os').tmpdir();
+  const filePath = path.join(tmpDir, vsix.name);
+  const buf = await fetchBuffer(vsix.browser_download_url);
+  const integrityEnforce = cfg.get('updateIntegrityEnforce');
+  if(hash && hash.browser_download_url){
+    const hashText=(await fetchBuffer(hash.browser_download_url)).toString('utf8').trim();
+    const expected = (hashText.match(/[A-Fa-f0-9]{64}/)||[])[0];
+    if(!expected && integrityEnforce) throw new Error('Hash sha256 no encontrado en archivo de hash');
+    if(expected){
+      const crypto=require('crypto');
+      const got=crypto.createHash('sha256').update(buf).digest('hex');
+      if(got.toLowerCase()!==expected.toLowerCase()){
+        if(integrityEnforce) throw new Error('Hash mismatch VSIX');
+        vscode.window.showWarningMessage('Advertencia: hash VSIX no coincide, instalando de todas formas.');
+      }
+    }
+  } else if(integrityEnforce){
+    throw new Error('Integridad requerida pero no hay archivo de hash');
+  }
+  fs.writeFileSync(filePath, buf);
+  await installVsix(filePath);
+  vscode.window.showInformationMessage('VSIX instalado: '+vsix.name+' — reinicia la ventana para aplicar.');
+}
+
+function fetchBuffer(url){
+  return new Promise((resolve,reject)=>{
+    const lib= url.startsWith('https:')? require('https'): require('http');
+    lib.get(url,{ headers:{'User-Agent':'copilot-chief-agent'} },res=>{
+      if(res.statusCode && res.statusCode>=300){ return reject(new Error('HTTP '+res.statusCode)); }
+      const chunks=[]; res.on('data',d=>chunks.push(d)); res.on('end',()=>resolve(Buffer.concat(chunks))); }).on('error',reject);
+  });
+}
+
+function installVsix(filePath){
+  return new Promise((resolve,reject)=>{
+    const codeCmd = process.platform.startsWith('win')? 'code.cmd':'code';
+    cp.exec(`${codeCmd} --install-extension "${filePath}"`, (err,stdout,stderr)=>{ if(err) return reject(new Error(stderr.trim()||err.message)); resolve(stdout.trim()); });
   });
 }
 

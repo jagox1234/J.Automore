@@ -253,6 +253,16 @@
           "type": "boolean",
           "default": false,
           "description": "Beep cuando un comando del bridge falla."
+        },
+        "copilotChief.acceptPrereleases": {
+          "type": "boolean",
+          "default": false,
+          "description": "Permitir considerar releases pre-release (beta) al buscar actualizaciones."
+        },
+        "copilotChief.updateIntegrityEnforce": {
+          "type": "boolean",
+          "default": false,
+          "description": "Exigir verificación de integridad SHA256 (.sha256) para instalar VSIX (si falta hash, aborta)."
         }
       }
     }
