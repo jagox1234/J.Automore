@@ -1,7 +1,7 @@
 // trigger: workflow release seed
 // minor noop comment to trigger CI for release verification v6 (force bump logic active)
 const vscode = require('vscode');
-const { startAgent, agentState, applyMemoryPlan } = require('./agent');
+const { startAgent, agentState, applyMemoryPlan, pauseAgent, resumeAgent } = require('./agent');
 const apiKeyStore = require('./apiKeyStore');
 const { validateEnv } = require('./envValidation');
 const https = require('https');
@@ -106,19 +106,29 @@ function activate(context) {
         }
     });
     const commandsCmd = vscode.commands.registerCommand('copilotChief.commands', async () => {
+        const st = agentState ? agentState() : { running:false, paused:false };
         const picks = [
-            { label: '$(rocket) Iniciar Agente', cmd: 'copilotChief.startAgent' },
+            { label: '$(rocket) Iniciar Agente', cmd: 'copilotChief.startAgent', always:true },
+            st.paused ? { label: '$(play) Reanudar Agente', cmd: 'copilotChief.resumeAgent' } : { label: '$(debug-pause) Pausar Agente', cmd: 'copilotChief.pauseAgent', enabled: st.running },
+            { label: '$(graph) Panel de Estado', cmd: 'copilotChief.statusPanel' },
             { label: '$(beaker) Diagnóstico', cmd: 'copilotChief.diagnose' },
             { label: '$(key) Configurar API Key', cmd: 'copilotChief.setApiKey' },
             { label: '$(shield) Probar API Key', cmd: 'copilotChief.testApiKey' },
             { label: '$(sync) Buscar Actualizaciones', cmd: 'copilotChief.checkUpdates' },
-            { label: '$(graph) Panel de Estado', cmd: 'copilotChief.statusPanel' }
-        ];
+            { label: '$(cloud-download) Forzar Update Ahora', cmd: 'copilotChief.forceUpdateNow' }
+        ].filter(p => p && (p.always || p.enabled === undefined || p.enabled));
         const sel = await vscode.window.showQuickPick(picks, { placeHolder: 'Comandos Copilot Chief' });
         if (sel) vscode.commands.executeCommand(sel.cmd);
     });
 
-    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, output);
+    const pauseCmd = vscode.commands.registerCommand('copilotChief.pauseAgent', () => {
+        pauseAgent();
+    });
+    const resumeCmd = vscode.commands.registerCommand('copilotChief.resumeAgent', () => {
+        resumeAgent();
+    });
+
+    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, output);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeo de actualización
@@ -365,6 +375,7 @@ async function initStatusBars(context){
             const st = agentState ? agentState() : { running:false, planning:false };
             let text = '$(robot) Chief:';
             if(st.running) text += ' $(sync~spin)';
+            if(st.paused) text += ' Pausado';
             else if(st.planning) text += ' Plan';
             else text += ' Idle';
             if(!_extVersion){ try { _extVersion = require('../package.json').version; } catch { _extVersion = '?'; } }

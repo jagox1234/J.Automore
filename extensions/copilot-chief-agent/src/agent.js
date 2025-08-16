@@ -13,9 +13,11 @@ let objectiveGlobal = '';
 let activeListener = null;
 let planning = false;
 let running = false;
+let paused = false;
 
 async function startAgent(objective) {
   if (planning) return;
+  if (paused) paused = false; // reset pause on fresh start
   planning = true;
   running = false;
   const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -45,6 +47,7 @@ async function startAgent(objective) {
 }
 
 async function executeNextStep() {
+  if (paused) { return; }
   const mem = loadMemory(workspaceRootPath);
   const step = nextStep(steps, mem.completed || []);
   if (!step) {
@@ -68,6 +71,7 @@ async function executeNextStep() {
     if (!change) return;
     const text = change.text;
     if (!text.trim()) return;
+  if (paused) { return; }
 
     // Detect pregunta
   if (/[?¿]/.test(text) || /que\s+hago|como\s+hacer/i.test(text)) {
@@ -90,7 +94,7 @@ async function executeNextStep() {
       await editor.edit(b => b.insert(editor.selection.active, `\n// Copilot Chief: Paso marcado como completado. Avanzando...\n`));
     }
     activeListener.dispose();
-    executeNextStep();
+  if (!paused) executeNextStep();
   });
 }
 
@@ -98,6 +102,7 @@ function agentState() {
   return {
     planning,
     running,
+  paused,
     objective: objectiveGlobal,
     remaining: steps.length - (loadMemory(workspaceRootPath).completed || []).length,
     total: steps.length
@@ -133,7 +138,26 @@ function applyMemoryPlan(mem){
   } catch (e){ lastFeedback = 'Error aplicando plan: '+e.message; }
 }
 
-module.exports = { startAgent, agentState, applyMemoryPlan, gitCommitStep, sanitizeCommitMessage };
+function pauseAgent(){
+  if (!running) { vscode.window.showInformationMessage('Agente no está en ejecución.'); return; }
+  paused = true;
+  vscode.window.showInformationMessage('Copilot Chief: Pausado.');
+}
+function resumeAgent(){
+  if (!paused) { vscode.window.showInformationMessage('Agente no está pausado.'); return; }
+  paused = false;
+  // seguir con el siguiente paso si no está completado todo
+  const mem = loadMemory(workspaceRootPath);
+  const remainingCount = steps.length - (mem.completed||[]).length;
+  if (remainingCount > 0) {
+    running = true;
+    executeNextStep();
+  } else {
+    vscode.window.showInformationMessage('No hay pasos restantes.');
+  }
+}
+
+module.exports = { startAgent, agentState, applyMemoryPlan, gitCommitStep, sanitizeCommitMessage, pauseAgent, resumeAgent };
 
 async function gitCommitStep(step) {
   return new Promise((resolve, reject) => {
