@@ -858,3 +858,25 @@
 ## v0.1.41 - 2025-08-16
 * feat(ui): mostrar siempre control play/pause en status bar (a12ce2e)
 
+## v0.1.46 - 2025-08-16
+* feat(command-bridge): puente de comandos con polling y tests (b2c816b)
+* chore(agent): set version 0.1.41 (post-release bump) (ea59fb1)
+* feat(ui): mostrar siempre control play/pause en status bar (a12ce2e)
+* chore(agent): set version 0.1.40 (post-release bump) (03978b4)
+* feat(ui): boton de pausa/reanudar en la barra de estado (21d1bdf)
+* chore(agent): set version 0.1.39 (post-release bump) (b1ba81f)
+* test(controls): cubrir confirmEachStep, skip, regenerate, pause/stop y gitCommitStep (455a57a)
+* test(guard): cubrir bucle repetido y aborto del agente (648c265)
+* test(assert): verificar agente detenido tras completar paso autocommit (cf7b536)
+* test(fix): evitar bucle infinito en agent.autocommit (persist mock + guard) (d31b867)
+* test(stability): evitar hang (skip updates en test, mock openai, runInBand, progreso granular) (e5e96a8)
+* feat(agent): controles avanzados (stop/skip/regenerar/confirmar pasos) y % progreso (3c12a5e)
+* feat(tests): reporter de progreso porcentaje para jest (44264e1)
+* perf(tests): reducir timeout OpenAI simulado y setup jest (c1c9858)
+* test(fix): estabilizar timeout y mock status bar (0841354)
+* test(coverage): aumentar ramas y paths (error/timeout openai, env, early return, autocommit) (8c20944)
+* test(agent): cobertura pausa/reanudar (34b8965)
+* chore(agent): auto bump version to 0.1.41 (af3f9ce)
+* chore(agent): auto bump version to 0.1.40 [skip-agent] (9cad5ff)
+* fix(update): evitar confusión cuando version local > release remoto (bump adelantado) (ce92599)
+

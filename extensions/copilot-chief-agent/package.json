@@ -2,7 +2,7 @@
   "name": "copilot-chief-agent",
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
-  "version": "0.1.45",
+  "version": "0.1.46",
   "publisher": "jautomore",
   "engines": {
     "vscode": "^1.75.0"
@@ -115,21 +115,29 @@
         "copilotChief.enableCommandBridge": {
           "type": "boolean",
           "default": true,
-          "description": "Activa el puente de comandos (requests.json) para ejecutar comandos aprobados automáticamente." 
+          "description": "Activa el puente de comandos (requests.json) para ejecutar comandos aprobados automáticamente."
         },
         "copilotChief.commandPollingSeconds": {
           "type": "number",
           "default": 15,
-          "description": "Intervalo en segundos para revisar nuevas solicitudes de comandos." 
+          "description": "Intervalo en segundos para revisar nuevas solicitudes de comandos."
         },
         "copilotChief.allowedCommands": {
           "type": "array",
-          "default": ["^npm test", "^npm run build"],
+          "default": [
+            "^npm test",
+            "^npm run build"
+          ],
           "description": "Regex de comandos permitidos automáticamente (evaluadas en orden)."
         },
         "copilotChief.blockedCommands": {
           "type": "array",
-          "default": ["rm ", "del ", "shutdown", "reboot"],
+          "default": [
+            "rm ",
+            "del ",
+            "shutdown",
+            "reboot"
+          ],
           "description": "Patrones (substring) bloqueados siempre."
         }
       }
