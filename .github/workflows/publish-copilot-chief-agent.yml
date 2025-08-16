@@ -31,41 +31,36 @@ jobs:
         run: |
           npm install -g @vscode/vsce
 
-      - name: Get current version & last tag
+      - name: Determine next version (post-build bump strategy)
         id: meta
         run: |
-          CURR=$(jq -r .version extensions/copilot-chief-agent/package.json)
-          echo "current=$CURR" >> $GITHUB_OUTPUT
-          LAST_TAG=$(git describe --tags --abbrev=0 --match 'copilot-chief-agent-v*' 2>/dev/null || echo '')
-          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
-
-      - name: Always auto bump patch
-        id: bump
-        run: |
           set -e
-          LAST_MSG=$(git log -1 --pretty=%B | tr -d '\r')
-          echo "Último commit: $LAST_MSG"
-          if echo "$LAST_MSG" | grep -qi 'auto bump version'; then
-            echo "Detectado commit de auto bump previo; evitando bump recursivo."
-            CURR=$(jq -r .version extensions/copilot-chief-agent/package.json)
-            echo "version=$CURR" >> $GITHUB_OUTPUT
-            exit 0
+          BASE=$(jq -r .version extensions/copilot-chief-agent/package.json)
+          LAST_TAG=$(git tag --list 'copilot-chief-agent-v*' | sort -V | tail -n1 || echo '')
+          echo "Último tag: $LAST_TAG (package.json=$BASE)"
+          if [ -n "$LAST_TAG" ]; then
+            # extraer versión numérica
+            LT=${LAST_TAG#copilot-chief-agent-v}
+          else
+            LT=$BASE
           fi
-          CURR=${{ steps.meta.outputs.current }}
-          # Siempre incrementar patch para cada ejecución (release por cambio)
-          # Antes: si existía el tag se saltaba el bump, lo que impedía nuevas versiones y por eso no se veía actualización.
-          # Ahora: cada run genera nueva versión aunque el tag anterior exista.
-          IFS='.' read -r MA MI PA <<< "$CURR"
-          PA=$((PA+1))
-          NEW="$MA.$MI.$PA"
-            jq ".version=\"$NEW\"" extensions/copilot-chief-agent/package.json > tmp.$$ && mv tmp.$$ extensions/copilot-chief-agent/package.json
-          echo "version=$NEW" >> $GITHUB_OUTPUT
-          echo "Bumped version to $NEW"
-          git config user.name 'agent-bot'
-          git config user.email 'agent-bot@users.noreply.github.com'
-          git add extensions/copilot-chief-agent/package.json
-          git commit -m "chore(agent): auto bump version to $NEW" || echo 'No commit'
-          git push || echo 'Push skipped'
+          # si package.json <= último tag, incrementamos; si package.json > tag (edición manual), usamos package.json
+          parse() { IFS='.' read -r A B C <<< "$1"; echo "$A $B $C"; }
+          read A1 B1 C1 <<< $(parse "$LT")
+          read A2 B2 C2 <<< $(parse "$BASE")
+          bump_needed=0
+          if [ $A2 -lt $A1 ] || { [ $A2 -eq $A1 ] && [ $B2 -lt $B1 ]; } || { [ $A2 -eq $A1 ] && [ $B2 -eq $B1 ] && [ $C2 -le $C1 ]; }; then
+            bump_needed=1
+          fi
+          if [ $bump_needed -eq 1 ]; then
+            C1=$((C1+1))
+            NEXT="$A1.$B1.$C1"
+          else
+            NEXT="$BASE"
+          fi
+          echo "next=$NEXT" >> $GITHUB_OUTPUT
+          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
+          echo "Base version: $BASE  | Last tag: $LAST_TAG | Next: $NEXT"
 
       - name: Install dependencies (extension)
         working-directory: extensions/copilot-chief-agent
@@ -87,7 +82,7 @@ jobs:
       - name: Generate changelog section
         id: changelog
         run: |
-          NEW_VER=${{ steps.bump.outputs.version }}
+          NEW_VER=${{ steps.meta.outputs.next }}
           LAST_TAG=${{ steps.meta.outputs.last_tag }}
           RANGE=""
           if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..HEAD"; fi
@@ -106,7 +101,7 @@ jobs:
       - name: Read final version
         id: finalver
         run: |
-          FINAL=$(jq -r .version extensions/copilot-chief-agent/package.json)
+          FINAL=${{ steps.meta.outputs.next }}
           echo "version=$FINAL" >> $GITHUB_OUTPUT
           echo "Final version: $FINAL"
 
@@ -117,6 +112,16 @@ jobs:
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG ya existe";
           else
+            # Escribir versión en package.json justo antes del tag si difiere
+            CURR=$(jq -r .version extensions/copilot-chief-agent/package.json)
+            if [ "$CURR" != "$VER" ]; then
+              jq ".version=\"$VER\"" extensions/copilot-chief-agent/package.json > tmp.$$ && mv tmp.$$ extensions/copilot-chief-agent/package.json
+              git config user.name 'agent-bot'
+              git config user.email 'agent-bot@users.noreply.github.com'
+              git add extensions/copilot-chief-agent/package.json
+              git commit -m "chore(agent): set version $VER (post-release bump)" || true
+              git push || true
+            fi
             git tag "$TAG"
             git push origin "$TAG"
           fi
