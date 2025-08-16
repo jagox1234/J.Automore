@@ -115,13 +115,13 @@ function runDemo(objective, root, output){ if(_demoRunning) return; _demoRunning
 // Snapshot
 function snapshot(output){ try{ if(!vscode.workspace.workspaceFolders) return; const root=vscode.workspace.workspaceFolders[0].uri.fsPath; const memPath=path.join(root,'.copilot-chief','state.json'); let memoryRaw='',memoryJson=null; if(fs.existsSync(memPath)){ memoryRaw=fs.readFileSync(memPath,'utf8'); try{memoryJson=JSON.parse(memoryRaw);}catch{} } const diagFile=path.join(root,'.copilot-chief','diagnostics.log'); let diagnosticsTail=''; if(fs.existsSync(diagFile)){ const lines=fs.readFileSync(diagFile,'utf8').trim().split(/\r?\n/); diagnosticsTail=lines.slice(-200).join('\n'); } const bridgeFile=path.join(root,'.copilot-chief','requests.json'); let bridgeRaw=''; if(fs.existsSync(bridgeFile)){ bridgeRaw=fs.readFileSync(bridgeFile,'utf8'); } const st=agentState(); const snap={ ts:new Date().toISOString(), state:st, memory:memoryJson, memoryRawLength:memoryRaw.length, diagnosticsTailLines:(diagnosticsTail.match(/\n/g)||[]).length+(diagnosticsTail?1:0), bridgeRaw }; const outDir=path.join(root,'.copilot-chief','snapshots'); fs.mkdirSync(outDir,{recursive:true}); const file=path.join(outDir,'snapshot-'+new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)+'.json'); fs.writeFileSync(file,JSON.stringify(snap,null,2),'utf8'); vscode.window.showInformationMessage('Snapshot creado: '+path.basename(file)); vscode.workspace.openTextDocument(file).then(d=>vscode.window.showTextDocument(d,{preview:false})); }catch(e){ vscode.window.showErrorMessage('Error snapshot: '+e.message);} }
 
-// Update checker (GitHub Releases simple fetch)
+// Update checker (GitHub Releases) con auto-install opcional y logging feed
 async function checkForUpdates(opts={}){
   const { manual=false, force=false, forceInstall=false }=opts;
   const cfg=vscode.workspace.getConfiguration('copilotChief');
   if(!manual && !cfg.get('autoUpdateCheck')) return;
   const now=Date.now();
-  if(!manual && _lastUpdateCheckTs && (now-_lastUpdateCheckTs) < 60000){ return; } // hard minimum 1 min
+  if(!manual && _lastUpdateCheckTs && (now-_lastUpdateCheckTs) < 60000){ return; }
   _lastUpdateCheckTs=now;
   const owner='jagox1234'; const repo='J.Automore';
   let current='?';
@@ -131,47 +131,64 @@ async function checkForUpdates(opts={}){
   try{
     if(acceptPrere){
       const releases=await fetchJson(`https://api.github.com/repos/${owner}/${repo}/releases`);
-      if(Array.isArray(releases)) releaseJson=releases.find(r=>!r.draft); // first non-draft (includes prerelease)
+      if(Array.isArray(releases)) releaseJson=releases.find(r=>!r.draft);
     } else {
       releaseJson=await fetchJson(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);
     }
-  }catch(e){ if(manual) vscode.window.showErrorMessage('Error consultando releases: '+e.message); return; }
-  if(!releaseJson || !releaseJson.tag_name){ if(manual) vscode.window.showWarningMessage('No se pudo obtener release tag'); return; }
-  const remote=releaseJson.tag_name.replace(/^v/,'');
+  }catch(e){ if(manual) vscode.window.showErrorMessage('Error consultando releases: '+e.message); pushLiveFeed('update.error','Fetch releases: '+e.message); return; }
+  if(!releaseJson || !releaseJson.tag_name){ if(manual) vscode.window.showWarningMessage('No se pudo obtener release tag'); pushLiveFeed('update.warn','Release sin tag_name'); return; }
+  const remoteTagRaw=releaseJson.tag_name; const remote=extractVersion(remoteTagRaw) || remoteTagRaw.replace(/^v/,'');
+  pushLiveFeed('update.info',`Release detectada tag="${remoteTagRaw}" versionExtraida=${remote} actual=${current}`);
   if(remote===current && !force){ if(manual) vscode.window.showInformationMessage('Ya estás en la última versión '+current); return; }
-  // Diff (simple): show first lines of body
   const body=(releaseJson.body||'').split('\n').slice(0,15).join('\n');
-  const silent=cfg.get('autoUpdateSilent');
+  const silent=cfg.get('autoUpdateSilent'); const autoInstall=cfg.get('autoUpdateInstall');
   if(!forceInstall && !silent && !manual){
     if(_lastUpdateVersionNotified!==remote){
-      vscode.window.showInformationMessage(`[Copilot Chief] Nueva versión ${remote} disponible (actual ${current}). Usa comando Buscar Actualizaciones para instalar.`);
+      if(autoInstall){ pushLiveFeed('update.auto','Instalación automática iniciada a '+remote); }
+      else { vscode.window.showInformationMessage(`[Copilot Chief] Nueva versión ${remote} disponible (actual ${current}). Usa comando Buscar Actualizaciones para instalar.`); }
       _lastUpdateVersionNotified=remote;
     }
-    return;
+    if(!autoInstall) return;
   }
   if(!forceInstall && !silent && manual){
     const pick=await vscode.window.showInformationMessage(`Nueva versión ${remote} (actual ${current}). ¿Instalar ahora?`, 'Instalar', 'Ver Cambios', 'Cancelar');
     if(pick==='Ver Cambios'){ await showTempDoc('Copilot Chief - Cambios', body||'Sin changelog'); }
     if(pick!=='Instalar') return;
   }
-  if(silent || forceInstall || manual){
+  if(silent || forceInstall || manual || autoInstall){
     try{
       const assetInfo = pickVsixAsset(releaseJson.assets||[]);
       if(assetInfo){
+        pushLiveFeed('update.download','Descargando VSIX '+(assetInfo.vsix?.name||''));
         await installVsixFromAsset(releaseJson, assetInfo, cfg);
+        pushLiveFeed('update.installed','VSIX instalado '+(assetInfo.vsix?.name||''));
+        if(cfg.get('autoReloadAfterUpdate')){
+          pushLiveFeed('update.reload','Recargando ventana tras actualización');
+          vscode.commands.executeCommand('workbench.action.reloadWindow');
+        } else if(!silent){
+          vscode.window.showInformationMessage('Actualización instalada. Recarga la ventana para aplicar (Ctrl+Shift+P → Reload Window).');
+        }
       } else {
         await attemptGitPullUpdate();
         vscode.window.showInformationMessage('Actualizado vía git pull (no VSIX encontrado). Reinicia la ventana si es necesario.');
       }
-    }catch(e){ vscode.window.showErrorMessage('Fallo al actualizar: '+e.message); }
+    }catch(e){ vscode.window.showErrorMessage('Fallo al actualizar: '+e.message); pushLiveFeed('update.error','Error '+e.message); }
   }
+}
+
+function extractVersion(tag){
+  if(!tag) return null;
+  const matches=[...tag.matchAll(/(\d+\.\d+\.\d+)/g)];
+  if(!matches.length) return null;
+  return matches[matches.length-1][1];
 }
 
 function scheduleAutoUpdateChecks(context){
   const cfg=vscode.workspace.getConfiguration('copilotChief');
   if(!cfg.get('autoUpdateCheck')) return;
-  const minutes=Math.max(1, cfg.get('updatePollMinutes')||15);
-  // first check shortly after startup
+  const poll=cfg.get('updatePollMinutes');
+  if(poll===0){ pushLiveFeed('update.info','Auto update polling desactivado'); return; }
+  const minutes=Math.max(1, poll||15);
   setTimeout(()=>checkForUpdates({manual:false}), 8000);
   _updateInterval=setInterval(()=>checkForUpdates({manual:false}), minutes*60000);
   context.subscriptions.push({ dispose(){ try{ clearInterval(_updateInterval);}catch{} } });

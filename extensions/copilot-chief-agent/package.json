@@ -156,6 +156,16 @@
           "default": 15,
           "description": "Intervalo (min) para volver a comprobar releases (0 desactiva)."
         },
+        "copilotChief.autoUpdateInstall": {
+          "type": "boolean",
+          "default": false,
+          "description": "Instala automáticamente una nueva versión encontrada (sin preguntar). Muestra notificación informativa."
+        },
+        "copilotChief.autoReloadAfterUpdate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Tras instalar actualización automática, recarga la ventana (Reload Window)."
+        },
         "copilotChief.confirmEachStep": {
           "type": "boolean",
           "default": false,
