@@ -121,6 +121,40 @@ function activate(context) {
             const doc = await vscode.workspace.openTextDocument(file); vscode.window.showTextDocument(doc,{preview:false});
         } catch(e){ vscode.window.showErrorMessage('Error snapshot: '+e.message); }
     });
+    const autoEnqueueCmd = vscode.commands.registerCommand('copilotChief.enqueueBridgePipeline', async () => {
+        try {
+            if(!vscode.workspace.workspaceFolders){ return vscode.window.showWarningMessage('Sin workspace'); }
+            const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
+            const file = path.join(root, '.copilot-chief', 'requests.json');
+            fs.mkdirSync(path.dirname(file), { recursive:true });
+            let list = [];
+            try { if(fs.existsSync(file)) list = JSON.parse(fs.readFileSync(file,'utf8')); } catch {}
+            const now = Date.now();
+            const base = [
+                'git pull --rebase --autostash',
+                'npm install --no-audit --no-fund',
+                'npm test --silent'
+            ];
+            // Append package if script exists
+            try { const pkg = require('../package.json'); if(pkg.scripts && pkg.scripts.package){ base.push('npm run package'); } } catch {}
+            const pendingOrRunning = new Set(list.filter(r=>['pending','running'].includes(r.status)).map(r=>r.command));
+            for(const [i,cmd] of base.entries()){
+                if(pendingOrRunning.has(cmd)) continue; // avoid duplicates
+                list.push({
+                    id: 'auto-'+(now+i),
+                    command: cmd,
+                    status: 'pending',
+                    createdAt: new Date(now+i).toISOString()
+                });
+            }
+            fs.writeFileSync(file, JSON.stringify(list,null,2),'utf8');
+            vscode.window.showInformationMessage('Bridge: comandos encolados ('+base.length+').');
+            logDiag('bridge.autoEnqueue', { count: base.length });
+            logActivity('bridge','auto enqueue '+base.length+' cmds');
+            // Optionally trigger immediate poll
+            try { processBridge(root, output, logActivity); } catch {}
+        } catch(e){ vscode.window.showErrorMessage('Error enqueue: '+e.message); }
+    });
         const testConsoleCmd = vscode.commands.registerCommand('copilotChief.testConsole', () => {
                 const panel = vscode.window.createWebviewPanel('copilotChiefTestConsole','Copilot Chief - Consola de Pruebas', vscode.ViewColumn.Active, { enableScripts:true });
                     _testConsoleSessions.set(panel.id, { transcript: [] });
@@ -281,7 +315,7 @@ function activate(context) {
     const regenCmd = vscode.commands.registerCommand('copilotChief.regeneratePlan', () => regeneratePlan());
     const nextCmd = vscode.commands.registerCommand('copilotChief.nextStep', () => manualAdvanceStep());
 
-    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, testConsoleCmd, output, activity, diagOpenCmd, diagToggleCmd, dumpStateCmd, snapshotCmd);
+    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, testConsoleCmd, output, activity, diagOpenCmd, diagToggleCmd, dumpStateCmd, snapshotCmd, autoEnqueueCmd);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeos de actualización omitidos en test para no dejar handles abiertos

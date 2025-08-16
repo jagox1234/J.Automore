@@ -1,3 +1,7 @@
+## v0.1.53 - 2025-08-16
+### Added
+* Comando `Copilot Chief: Encolar Pipeline (Bridge)` que añade automáticamente una secuencia de comandos (pull, install, test, package) al `requests.json` evitando edición manual.
+
 ## v0.1.52 - 2025-08-16
 ### Added
 * Sistema de diagnóstico verboso: canal "Copilot Chief Diagnostics" y archivo `.copilot-chief/diagnostics.log` con rotación (~1MB).
