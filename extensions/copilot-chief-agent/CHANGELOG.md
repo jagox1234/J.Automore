@@ -945,3 +945,6 @@
 ## v0.1.53 - 2025-08-16
 * feat(diagnostics): verbose instrumentation, snapshot command, coverage threshold adjust (v0.1.52) (e27e87f)
 
+## v0.1.54 - 2025-08-16
+* feat(bridge): auto enqueue pipeline command (v0.1.53) (0d2e60f)
+
