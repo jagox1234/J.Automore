@@ -104,7 +104,7 @@ function activate(context) {
                 <script>
                 const vscode = acquireVsCodeApi();
                 function log(html){ const el=document.getElementById('log'); el.innerHTML += html; el.scrollTop = el.scrollHeight; }
-                function sanitize(s){ const m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}; return s.replace(/[&<>"']/g,c=>m[c]||c); }
+                function sanitize(s){ const m={}; m['&']='&amp;'; m['<']='&lt;'; m['>']='&gt;'; m['"']='&quot;'; m["'"]='&#39;'; return s.replace(/[&<>"']/g,c=>m[c]||c); }
             function emitA(){ const v=document.getElementById('aInput').value.trim(); if(!v) return; const isQ=/[?¿]$/.test(v); log('<div><span class="tag'+(isQ?' q':'')+'">A→B'+(isQ?'?':'')+'</span>'+sanitize(v)+'</div>'); vscode.postMessage({kind:'a2b', value:v, question:isQ}); }
             function emitB(){ const v=document.getElementById('bInput').value.trim(); if(!v) return; const isQ=/[?¿]$/.test(v); log('<div><span class="tag b'+(isQ?' q':'')+'">B→A'+(isQ?'?':'')+'</span>'+sanitize(v)+'</div>'); vscode.postMessage({kind:'b2a', value:v, question:isQ}); }
                 function clearA(){ document.getElementById('aInput').value=''; }
