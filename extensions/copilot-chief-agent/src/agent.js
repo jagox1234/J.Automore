@@ -14,6 +14,8 @@ let activeListener = null;
 let planning = false;
 let running = false;
 let paused = false;
+let currentStep = null; // mantiene referencia al paso actual insertado
+let waitingManual = false; // cuando confirmEachStep está activado y esperamos 'next'
 
 async function startAgent(objective) {
   if (planning) return;
@@ -55,6 +57,8 @@ async function executeNextStep() {
   running = false;
     return;
   }
+  // Si confirmEachStep está activo y ya hemos insertado uno, esperar confirmación manual antes de avanzar
+  if (waitingManual) { return; }
   const editor = vscode.window.activeTextEditor;
   if (!editor) {
     vscode.window.showWarningMessage('Abre un archivo para insertar instrucciones del paso: ' + step);
@@ -64,6 +68,7 @@ async function executeNextStep() {
     editBuilder.insert(editor.selection.active, `\n// Copilot Chief Paso: ${step}\n// Implementa este paso. Si necesitas aclaración, formula una pregunta.\n`);
   });
 
+  currentStep = step;
   if (activeListener) { activeListener.dispose(); }
   activeListener = vscode.workspace.onDidChangeTextDocument(async (event) => {
     if (event.document !== editor.document) return;
@@ -94,7 +99,15 @@ async function executeNextStep() {
       await editor.edit(b => b.insert(editor.selection.active, `\n// Copilot Chief: Paso marcado como completado. Avanzando...\n`));
     }
     activeListener.dispose();
-  if (!paused) executeNextStep();
+	if (!paused) {
+      const confirmEach = vscode.workspace.getConfiguration('copilotChief').get('confirmEachStep');
+      if (confirmEach) {
+        waitingManual = true;
+        vscode.window.showInformationMessage('Paso completado. Usa "Copilot Chief: Siguiente Paso" para continuar.');
+      } else {
+        executeNextStep();
+      }
+    }
   });
 }
 
@@ -157,7 +170,55 @@ function resumeAgent(){
   }
 }
 
-module.exports = { startAgent, agentState, applyMemoryPlan, gitCommitStep, sanitizeCommitMessage, pauseAgent, resumeAgent };
+function stopAgent(){
+  if(!running && !planning){ vscode.window.showInformationMessage('Agente ya está detenido.'); return; }
+  planning = false; running = false; paused = false; waitingManual = false; currentStep = null;
+  if (activeListener) { try { activeListener.dispose(); } catch {} activeListener = null; }
+  vscode.window.showInformationMessage('Copilot Chief: Agente detenido.');
+}
+
+function skipCurrentStep(){
+  if(!running){ vscode.window.showInformationMessage('Agente no está en ejecución.'); return; }
+  if(!currentStep){ vscode.window.showInformationMessage('No hay paso actual que saltar.'); return; }
+  // Marcarlo como completado para no regresar
+  try { markStepComplete(workspaceRootPath, currentStep); } catch {}
+  currentStep = null;
+  waitingManual = false;
+  vscode.window.showInformationMessage('Paso saltado.');
+  executeNextStep();
+}
+
+async function regeneratePlan(){
+  if(!workspaceRootPath || !objectiveGlobal){ vscode.window.showWarningMessage('No hay plan activo para regenerar.'); return; }
+  if(planning){ vscode.window.showInformationMessage('Ya se está planificando.'); return; }
+  planning = true;
+  vscode.window.showInformationMessage('Regenerando plan...');
+  const max = vscode.workspace.getConfiguration('copilotChief').get('maxPlanSteps') || 15;
+  const plan = await askChatGPT(`Regenera un plan de pasos numerados (máx ${max}) refinado basándote en que ya existen commits y contexto actual. Objetivo: ${objectiveGlobal}. Manten pasos atómicos.`);
+  const newSteps = plan.split(/\n+/).map(s=>s.replace(/^\d+[). -]\s*/, '').trim()).filter(Boolean).slice(0,max);
+  if(newSteps.length){
+    // Mantener completados existentes
+    const mem = loadMemory(workspaceRootPath);
+    const completed = mem.completed||[];
+    const remaining = newSteps.filter(s=>!completed.includes(s));
+    steps = [...completed.filter(c=>newSteps.includes(c)), ...remaining];
+    mem.steps = steps;
+    saveMemory(workspaceRootPath, mem);
+    vscode.window.showInformationMessage('Plan regenerado ('+steps.length+' pasos totales).');
+  } else {
+    vscode.window.showWarningMessage('No se pudo regenerar el plan (respuesta vacía).');
+  }
+  planning = false;
+  if(running && !paused && !waitingManual) executeNextStep();
+}
+
+function manualAdvanceStep(){
+  if(!waitingManual){ vscode.window.showInformationMessage('No se está esperando confirmación manual.'); return; }
+  waitingManual = false;
+  executeNextStep();
+}
+
+module.exports = { startAgent, agentState, applyMemoryPlan, gitCommitStep, sanitizeCommitMessage, pauseAgent, resumeAgent, stopAgent, skipCurrentStep, regeneratePlan, manualAdvanceStep };
 
 async function gitCommitStep(step) {
   return new Promise((resolve, reject) => {

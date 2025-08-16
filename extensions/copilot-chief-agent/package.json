@@ -2,7 +2,7 @@
   "name": "copilot-chief-agent",
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
-  "version": "0.1.41",
+  "version": "0.1.42",
   "publisher": "jautomore",
   "engines": {
     "vscode": "^1.75.0"
@@ -19,6 +19,10 @@
       {
         "command": "copilotChief.startAgent",
         "title": "Copilot Chief: Iniciar Agente"
+      },
+      {
+        "command": "copilotChief.stopAgent",
+        "title": "Copilot Chief: Detener Agente"
       },
       {
         "command": "copilotChief.checkUpdates",
@@ -47,6 +51,18 @@
       {
         "command": "copilotChief.forceUpdateNow",
         "title": "Copilot Chief: Forzar Instalación Última Versión"
+      },
+      {
+        "command": "copilotChief.skipCurrentStep",
+        "title": "Copilot Chief: Saltar Paso Actual"
+      },
+      {
+        "command": "copilotChief.regeneratePlan",
+        "title": "Copilot Chief: Regenerar Plan"
+      },
+      {
+        "command": "copilotChief.nextStep",
+        "title": "Copilot Chief: Siguiente Paso (confirmación manual)"
       }
     ],
     "configuration": {
@@ -86,6 +102,11 @@
           "type": "number",
           "default": 15,
           "description": "Intervalo (min) para volver a comprobar releases (0 desactiva)."
+        },
+        "copilotChief.confirmEachStep": {
+          "type": "boolean",
+          "default": false,
+          "description": "Si está activo, el agente espera confirmación manual antes de insertar el siguiente paso (comando 'Siguiente Paso')."
         }
       }
     }
