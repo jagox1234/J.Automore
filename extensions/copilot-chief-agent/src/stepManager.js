@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const memoryManager = require('./memoryManager'); // Added memoryManager import
+const _memoryManager = require('./memoryManager'); // import kept for future use
 function nextStep(steps, completed) {
   return steps.find(s => !completed.includes(s));
 }

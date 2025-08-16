@@ -135,7 +135,7 @@ function activate(context) {
                     const raw = fs.readFileSync(memFile, 'utf8');
                     const json = JSON.parse(raw);
                     applyMemoryPlan(json);
-                } catch (e) {
+                } catch {
                     // ignore parse errors silently for now
                 }
             };
@@ -155,7 +155,7 @@ function activate(context) {
             } else {
                 output.appendLine('[env] Entorno OK');
             }
-        } catch (e) { output.appendLine('[env] Error validando entorno: '+e.message); }
+    } catch { output.appendLine('[env] Error validando entorno'); }
     })();
 }
 
@@ -445,7 +445,7 @@ function downloadAndInstall(url, name, output, versionHint) {
                         attempts.push(`code --install-extension '${filePath}' --force`);
                         attempts.push(`${path.join(exeDir,'bin','code')} --install-extension '${filePath}' --force`);
                     }
-                    let installed = false;
+                    let _installed = false; // underscore to indicate intentional unused
                     const tryNext = () => {
                         if (!attempts.length) {
                             output.appendLine('[update] No se pudo instalar automáticamente via CLI. Mostrando métodos manuales.');
@@ -459,7 +459,7 @@ function downloadAndInstall(url, name, output, versionHint) {
                                 output.appendLine('[update] Falló comando: ' + err.message + (stderr? (' | ' + stderr):''));
                                 return tryNext();
                             }
-                            output.appendLine('[update] Instalación CLI OK. stdout: ' + (stdout||'')); installed = true;
+                            output.appendLine('[update] Instalación CLI OK. stdout: ' + (stdout||'')); _installed = true;
                             const verMsg = versionHint ? ' a ' + versionHint : '';
                             vscode.window.showInformationMessage('Copilot Chief actualizado' + verMsg + '. ¿Recargar ahora?', 'Recargar ahora', 'Luego')
                                 .then(choice => { if (choice === 'Recargar ahora') vscode.commands.executeCommand('workbench.action.reloadWindow'); });

@@ -11,7 +11,6 @@ function parsePlanSteps(raw) {
   const steps = [];
   const seen = new Set();
   for (let line of lines) {
-    const original = line;
     line = line.trim();
     if (!line) continue;
     // Skip headings / markdown fences

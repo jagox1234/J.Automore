@@ -13,6 +13,7 @@ function scanProject(dir, exts = ['.js', '.ts', '.jsx', '.tsx', '.json', '.yaml'
 }
 
 function traverse(dir, exts, out){
+  let totalLen = out.reduce((a,s)=>a+s.length,0);
   let entries;
   try { entries = fs.readdirSync(dir); } catch { return; }
   for (const file of entries) {
@@ -24,7 +25,7 @@ function traverse(dir, exts, out){
     const ext = path.extname(file);
     if (!exts.includes(ext)) continue;
     if (stat.size <= WHOLE_FILE_LIMIT) {
-      try { out.push(`\n[${path.relative(process.cwd(), filePath)}]\n${fs.readFileSync(filePath,'utf8')}`); } catch {}
+  try { const chunk = `\n[${path.relative(process.cwd(), filePath)}]\n${fs.readFileSync(filePath,'utf8')}`; out.push(chunk); totalLen += chunk.length; } catch { /* read small file failed */ }
     } else {
       // Large file: sample first 120 lines and last 40 lines
       try {
@@ -32,11 +33,12 @@ function traverse(dir, exts, out){
         const lines = content.split(/\r?\n/);
         const head = lines.slice(0,120).join('\n');
         const tail = lines.slice(-40).join('\n');
-        out.push(`\n[${path.relative(process.cwd(), filePath)}]\n/* FILE TRUNCATED size=${stat.size} */\n${head}\n...\n${tail}`);
-      } catch {}
+        const chunk = `\n[${path.relative(process.cwd(), filePath)}]\n/* FILE TRUNCATED size=${stat.size} */\n${head}\n...\n${tail}`;
+        out.push(chunk); totalLen += chunk.length;
+  } catch { /* read large file failed */ }
     }
     // Stop early if near cap
-    if (out.reduce((a,s)=>a+s.length,0) > TOTAL_CAP) return;
+    if (totalLen > TOTAL_CAP) return;
   }
 }
 

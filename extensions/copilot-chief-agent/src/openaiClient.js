@@ -4,7 +4,7 @@ const { getApiKey } = require('./apiKeyStore');
 const globalAny = global;
 if (typeof globalAny.fetch !== 'function') {
   // Lazy load node-fetch if not present (when running in extension host without built-in fetch)
-  try { globalAny.fetch = require('node-fetch'); } catch(_) {}
+  try { globalAny.fetch = require('node-fetch'); } catch { /* ignore */ }
 }
 
 /**

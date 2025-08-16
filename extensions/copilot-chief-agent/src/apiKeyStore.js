@@ -9,7 +9,7 @@ async function getApiKey() {
     try {
       const sec = await ctx.secrets.get('copilotChief.openaiApiKey');
       if (sec) return sec.trim();
-    } catch(_) {}
+  } catch { /* secret retrieval failed */ }
   }
   const cfg = vscode.workspace.getConfiguration('copilotChief');
   const cfgKey = cfg.get('openaiApiKey');

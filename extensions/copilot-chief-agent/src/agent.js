@@ -33,7 +33,7 @@ async function startAgent(objective) {
   vscode.window.setStatusBarMessage('Copilot Chief: Generando plan con OpenAI...', 4000);
   const max = vscode.workspace.getConfiguration('copilotChief').get('maxPlanSteps') || 15;
   const plan = await askChatGPT(`Eres un agente jefe que coordina a GitHub Copilot.\nObjetivo: ${objective}\nDevuelve una lista numerada de pasos concretos (máx ${max}) y orientada a commits atómicos.\nProyecto:\n${projectContext}`);
-  steps = plan.split(/\n+/).map(s => s.replace(/^\d+[).\-]\s*/, '').trim()).filter(Boolean).slice(0, max);
+  steps = plan.split(/\n+/).map(s => s.replace(/^\d+[). -]\s*/, '').trim()).filter(Boolean).slice(0, max);
 
   const mem = { objective, steps, completed: [], startedAt: new Date().toISOString() };
   saveMemory(workspaceRootPath, mem);
@@ -70,8 +70,8 @@ async function executeNextStep() {
     if (!text.trim()) return;
 
     // Detect pregunta
-    if (/[?¿]/.test(text) || /que\s+hago|como\s+hacer/i.test(text)) {
-      const answer = await askChatGPT(`Objetivo global: ${objectiveGlobal}\nContexto:\n${projectContext}\nPregunta de Copilot o duda detectada en el código:\n${text}\nResponde de forma precisa en máximo 6 líneas y si procede da un mini ejemplo.`);
+  if (/[?¿]/.test(text) || /que\s+hago|como\s+hacer/i.test(text)) {
+  const answer = await askChatGPT(`Objetivo global: ${objectiveGlobal}\nContexto:\n${projectContext}\nPregunta de Copilot o duda detectada en el código:\n${text}\nResponde de forma precisa en máximo 6 líneas y si procede da un mini ejemplo.`);
       await editor.edit(b => b.insert(editor.selection.active, `\n// Respuesta del Agente: ${answer.replace(/\n/g, ' ')}\n`));
       return;
     }
