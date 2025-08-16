@@ -894,3 +894,6 @@
 ## v0.1.47 - 2025-08-16
 * feat(command-bridge): pruning entries + config bump 0.1.46 (422aef9)
 
+## v0.1.48 - 2025-08-16
+* docs(changelog): add entries for 0.1.41-0.1.46 (b31c4bd)
+
