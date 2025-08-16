@@ -914,3 +914,6 @@
 ## v0.1.49 - 2025-08-16
 * feat(command-bridge): notifications + config (v0.1.48) (e631347)
 
+## v0.1.50 - 2025-08-16
+* feat(console): actividad bridge + filtro listener comentarios (v0.1.49) (6288448)
+
