@@ -406,7 +406,8 @@ function checkForUpdate(output, opts={}) {
                     const json = JSON.parse(data);
                     const asset = (json.assets||[]).find(a => a.name && a.name.endsWith('.vsix'));
                     const tag = json.tag_name || '';
-                    const latestVer = (asset && /copilot-chief-agent-(\d+\.\d+\.\d+)\.vsix/.exec(asset.name))?.[1] || tag.replace(/^.*v/, '');
+                    if (!asset) { output.appendLine('[update] Release remoto sin asset VSIX; se ignora este intento.'); return resolve(); }
+                    const latestVer = (/copilot-chief-agent-(\d+\.\d+\.\d+)\.vsix/.exec(asset.name))?.[1] || tag.replace(/^.*v/, '');
                     output.appendLine(`[update] Versión local ${current} - remota ${latestVer}`);
                                 if (asset && (opts.force || (latestVer && isNewer(latestVer, current)))) {
                                                 if (opts.silentInstall) {
