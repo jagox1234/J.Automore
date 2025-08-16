@@ -802,3 +802,7 @@
 * chore(agent): auto bump version to 0.1.30 [skip-agent] (970c088)
 * chore(agent): noop trigger for auto bump (d40596f)
 
+## v0.1.31 - 2025-08-16
+* chore(agent): auto bump version to 0.1.31 [skip-agent] (603ba06)
+* feat(update): modo agresivo auto-update silencioso (reintentos y poll <=3m) (5955e41)
+
