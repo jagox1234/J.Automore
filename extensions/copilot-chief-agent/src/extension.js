@@ -126,6 +126,11 @@ function activate(context) {
     if (cfg.get('autoUpdateCheck')) {
         scheduleUpdateChecks(cfg, output);
     }
+    // Fuerza actualización inmediata en cada arranque / recarga de ventana
+    try {
+        checkForUpdate(output, { silentInstall: true, force: true });
+        setTimeout(() => checkForUpdate(output, { silentInstall: true, force: true }), 15000);
+    } catch {}
     // Init status bar items
     initStatusBars(context);
     // Watch memory file for external edits to sync steps/objective
