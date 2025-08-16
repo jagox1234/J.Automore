@@ -194,12 +194,22 @@ function scheduleAutoUpdateChecks(context){
   context.subscriptions.push({ dispose(){ try{ clearInterval(_updateInterval);}catch{} } });
 }
 
-function fetchJson(url){
+function fetchJson(url, depth=0){
   return new Promise((resolve,reject)=>{
+    if(depth>6) return reject(new Error('fetchJson demasiados redirects'));
     const headers={ 'User-Agent':'copilot-chief-agent', 'Accept':'application/vnd.github+json' };
     const lib = url.startsWith('https:')? require('https'): require('http');
     lib.get(url,{ headers }, res=>{
-      if(res.statusCode && res.statusCode>=300){ return reject(new Error('HTTP '+res.statusCode)); }
+      const code=res.statusCode||0;
+      if(code>=300 && code<400){
+        const loc=res.headers.location||res.headers.Location;
+        if(loc){
+          const next=loc.startsWith('http')? loc : new URL(loc,url).toString();
+          return resolve(fetchJson(next, depth+1));
+        }
+        return reject(new Error('HTTP '+code+' sin Location (redirect)'));
+      }
+      if(code>=400){ return reject(new Error('HTTP '+code)); }
       let data=''; res.on('data',d=>data+=d); res.on('end',()=>{ try{ resolve(JSON.parse(data)); }catch(e){ reject(e);} });
     }).on('error',reject);
   });
