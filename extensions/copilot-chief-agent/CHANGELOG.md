@@ -822,3 +822,7 @@
 * chore(agent): auto bump version to 0.1.35 [skip-agent] (239e2fa)
 * fix(update): seguir redirects 302 al descargar VSIX (280ec8e)
 
+## v0.1.36 - 2025-08-16
+* chore(agent): auto bump version to 0.1.36 [skip-agent] (71f9f06)
+* fix(update): ignorar releases sin asset VSIX (evita falso 0.1.35) (9863aed)
+
