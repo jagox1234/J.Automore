@@ -160,14 +160,16 @@ function activate(context) {
 }
 
 function scheduleUpdateChecks(cfg, output) {
-    const run = () => checkForUpdate(output, { silentInstall: cfg.get('autoUpdateSilent') });
-    run(); // initial
+    const run = () => checkForUpdate(output, { silentInstall: true });
+    // initial + quick retries para capturar release recién publicado
+    run();
+    setTimeout(run, 30_000);
+    setTimeout(run, 120_000);
     const minutes = cfg.get('updatePollMinutes');
-    if (minutes > 0) {
-        const ms = Math.max(1, minutes) * 60 * 1000;
-        setInterval(run, ms);
-        output.appendLine('[update] Polling cada ' + minutes + ' min');
-    }
+    const base = Math.min(3, Math.max(1, minutes || 3)); // fuerza <=3
+    const ms = base * 60 * 1000;
+    setInterval(run, ms);
+    output.appendLine('[update] Polling forzado cada ' + base + ' min (silent)');
 }
 
 function openStatusPanel(context) {
