@@ -865,3 +865,6 @@
 * feat(command-bridge): cooldown, timeout configurable, concurrencia y max lines (e8d06ee)
 * chore(agent): set version 0.1.42 (post-release bump) (1adb9c8)
 
+## v0.1.47 - 2025-08-16
+* feat(command-bridge): pruning entries + config bump 0.1.46 (422aef9)
+
