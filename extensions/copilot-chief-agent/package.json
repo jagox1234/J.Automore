@@ -117,6 +117,15 @@
         "command": "copilotChief.selfTest",
         "title": "Copilot Chief: Auto Test (Demo + Export + Snapshot)"
       }
+      ,
+      {
+        "command": "copilotChief.installLatestRelease",
+        "title": "Copilot Chief: Instalar Último Release"
+      },
+      {
+        "command": "copilotChief.installLatestPrerelease",
+        "title": "Copilot Chief: Instalar Último Pre-Release"
+      }
     ],
     "configuration": {
       "title": "Copilot Chief Agent",

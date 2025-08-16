@@ -30,6 +30,8 @@ function activate(context){
     vscode.commands.registerCommand('copilotChief.checkUpdates', ()=>checkForUpdates({manual:true, force:false})),
     vscode.commands.registerCommand('copilotChief.forceUpdateNow', ()=>checkForUpdates({manual:true, force:true, forceInstall:true})),
     vscode.commands.registerCommand('copilotChief.selfTest', ()=>autoSelfTest(output)),
+    vscode.commands.registerCommand('copilotChief.installLatestRelease', ()=>checkForUpdates({ manual:true, force:true, forceInstall:true, includePrere:false })),
+    vscode.commands.registerCommand('copilotChief.installLatestPrerelease', ()=>checkForUpdates({ manual:true, force:true, forceInstall:true, includePrere:true })),
 		vscode.commands.registerCommand('copilotChief.pauseAgent', ()=>pauseAgent()),
 		vscode.commands.registerCommand('copilotChief.resumeAgent', ()=>resumeAgent()),
 		vscode.commands.registerCommand('copilotChief.stopAgent', ()=>stopAgent()),
@@ -117,7 +119,7 @@ function snapshot(output){ try{ if(!vscode.workspace.workspaceFolders) return; c
 
 // Update checker (GitHub Releases) con auto-install opcional y logging feed
 async function checkForUpdates(opts={}){
-  const { manual=false, force=false, forceInstall=false }=opts;
+  const { manual=false, force=false, forceInstall=false, includePrere }=opts;
   const cfg=vscode.workspace.getConfiguration('copilotChief');
   if(!manual && !cfg.get('autoUpdateCheck')) return;
   const now=Date.now();
@@ -126,7 +128,7 @@ async function checkForUpdates(opts={}){
   const owner='jagox1234'; const repo='J.Automore';
   let current='?';
   try{ current=require('../package.json').version; }catch{}
-  const acceptPrere=cfg.get('acceptPrereleases');
+  const acceptPrere = (typeof includePrere==='boolean')? includePrere : cfg.get('acceptPrereleases');
   let releaseJson=null;
   try{
     if(acceptPrere){
