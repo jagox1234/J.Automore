@@ -998,3 +998,6 @@
 ## v0.1.57 - 2025-08-16
 * feat(qol): quick status, codelens pasos, feed filtros + config (v0.1.56) (34e6c45)
 
+## v0.1.59 - 2025-08-16
+* docs(governance): add development rules and contributing guide (e9db069)
+
