@@ -8,3 +8,5 @@ package-lock.json
 dist/
 coverage/
 *.log
+.copilot-chief-memory.json
+extensions/copilot-chief-agent/*.vsix
