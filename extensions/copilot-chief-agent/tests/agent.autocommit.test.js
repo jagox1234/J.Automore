@@ -12,6 +12,7 @@ describe('agent autocommit path', () => {
     vscode.workspace.getConfiguration = ()=> ({ get: (k)=> {
       if (k==='maxPlanSteps') return 5; if (k==='autoGitCommit') return true; return false; }});
     vscode.window.activeTextEditor = { selection:{ active:{} }, edit: async (fn)=>fn({ insert:()=>{} }) };
+  vscode.window.setStatusBarMessage = ()=>{};
     vscode.window.showInformationMessage = ()=>{};
     vscode.window.showWarningMessage = ()=>{};
     vscode.workspace.onDidChangeTextDocument = (cb)=>{ cb({ document: vscode.window.activeTextEditor.document, contentChanges:[{ text:'algo' }] }); return { dispose:()=>{} }; };

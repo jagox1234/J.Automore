@@ -14,8 +14,12 @@ describe('openaiClient error/timeout', () => {
     expect(r).toBe('');
   });
   test('timeout abort path', async () => {
-    global.fetch = jest.fn(()=> new Promise(()=>{}));
-    const r = await askChatGPT('prompt', { timeoutMs:10 });
+    global.fetch = jest.fn((url, opts)=> new Promise((resolve, reject)=>{
+      if (opts && opts.signal) {
+        opts.signal.addEventListener('abort', ()=> reject(Object.assign(new Error('aborted'), { name:'AbortError' })));
+      }
+    }));
+    const r = await askChatGPT('prompt', { timeoutMs:20 });
     expect(r).toBe('');
-  });
+  }, 500);
 });
