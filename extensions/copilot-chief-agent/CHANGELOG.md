@@ -1013,3 +1013,6 @@
 * chore: normalize gpt-test (post auto-install change) (a8175ff)
 * feat(update): force initial auto-install attempt on startup (a2a81bd)
 
+## v0.1.63 - 2025-08-16
+* feat(update): add force-install-latest script (7bdbf9f)
+

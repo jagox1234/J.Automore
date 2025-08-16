@@ -2,7 +2,7 @@
   "name": "copilot-chief-agent",
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
-  "version": "0.1.62",
+  "version": "0.1.63",
   "publisher": "jautomore",
   "icon": "images/icon.png",
   "engines": {
@@ -281,8 +281,8 @@
     "package": "vsce package || echo 'Instala vsce si falta'",
     "lint": "eslint src --max-warnings=0 || exit 1",
     "test": "jest --runInBand",
-  "verify": "npm run lint && npm test -- --ci",
-  "update:latest": "node scripts/force-install-latest.js"
+    "verify": "npm run lint && npm test -- --ci",
+    "update:latest": "node scripts/force-install-latest.js"
   },
   "keywords": [
     "copilot",
