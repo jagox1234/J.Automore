@@ -1,5 +1,8 @@
 // trigger: workflow release seed
 // minor noop comment to trigger CI for release verification v6 (force bump logic active)
+// Timers registro global para permitir limpieza en tests/deactivate
+const _timers = [];
+const _isTest = !!process.env.JEST_WORKER_ID;
 const vscode = require('vscode');
 const { startAgent, agentState, applyMemoryPlan, pauseAgent, resumeAgent, stopAgent, skipCurrentStep, regeneratePlan, manualAdvanceStep } = require('./agent');
 const apiKeyStore = require('./apiKeyStore');
@@ -135,20 +138,23 @@ function activate(context) {
     context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, output);
     output.appendLine('[activate] Comando registrado');
 
-    // Chequeo de actualización
-    const cfg = vscode.workspace.getConfiguration('copilotChief');
-    if (cfg.get('autoUpdateCheck')) {
-        scheduleUpdateChecks(cfg, output);
+    // Chequeos de actualización omitidos en test para no dejar handles abiertos
+    if (!_isTest) {
+        const cfg = vscode.workspace.getConfiguration('copilotChief');
+        if (cfg.get('autoUpdateCheck')) {
+            scheduleUpdateChecks(cfg, output);
+        }
+        try {
+            checkForUpdate(output, { silentInstall: true, force: true });
+            _timers.push(setTimeout(() => checkForUpdate(output, { silentInstall: true, force: true }), 15000));
+        } catch {}
+    } else {
+        output.appendLine('[test] Skip update cycle');
     }
-    // Fuerza actualización inmediata en cada arranque / recarga de ventana
-    try {
-        checkForUpdate(output, { silentInstall: true, force: true });
-        setTimeout(() => checkForUpdate(output, { silentInstall: true, force: true }), 15000);
-    } catch {}
     // Init status bar items
     initStatusBars(context);
     // Watch memory file for external edits to sync steps/objective
-    if (vscode.workspace.workspaceFolders) {
+    if (vscode.workspace.workspaceFolders && !_isTest) {
         const memFile = vscode.workspace.workspaceFolders[0].uri.fsPath + '/.copilot-chief/state.json';
         try {
             const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.workspace.workspaceFolders[0], '.copilot-chief/state.json'));
@@ -184,15 +190,18 @@ function activate(context) {
 }
 
 function scheduleUpdateChecks(cfg, output) {
+    if (process.env.JEST_WORKER_ID) { // evitar timers persistentes en tests
+        output.appendLine('[update][test] Polling desactivado en entorno de test');
+        return;
+    }
     const run = () => checkForUpdate(output, { silentInstall: true });
-    // initial + quick retries para capturar release recién publicado
     run();
-    setTimeout(run, 30_000);
-    setTimeout(run, 120_000);
+    _timers.push(setTimeout(run, 30_000));
+    _timers.push(setTimeout(run, 120_000));
     const minutes = cfg.get('updatePollMinutes');
-    const base = Math.min(3, Math.max(1, minutes || 3)); // fuerza <=3
+    const base = Math.min(3, Math.max(1, minutes || 3));
     const ms = base * 60 * 1000;
-    setInterval(run, ms);
+    _timers.push(setInterval(run, ms));
     output.appendLine('[update] Polling forzado cada ' + base + ' min (silent)');
 }
 
@@ -404,11 +413,17 @@ async function initStatusBars(context){
         statusBarMenu.tooltip = 'Menú de comandos Copilot Chief';
         statusBarMenu.show();
     };
-    setInterval(refresh, 4000);
-    refresh();
+    if (process.env.JEST_WORKER_ID) {
+        // En tests, ejecutar refresh una sola vez para no dejar handles abiertos
+        refresh();
+    } else {
+        _timers.push(setInterval(refresh, 4000));
+        refresh();
+    }
 }
 
 function checkForUpdate(output, opts={}) {
+    if (_isTest) return Promise.resolve();
     return new Promise((resolve) => {
         const pkg = require('../package.json');
         const current = pkg.version;
@@ -571,6 +586,11 @@ function downloadAndInstall(url, name, output, versionHint) {
     });
 }
 
-function deactivate() {}
+function deactivate() {
+    while (_timers.length) {
+        const t = _timers.pop();
+        try { clearTimeout(t); clearInterval(t); } catch {}
+    }
+}
 
 module.exports = { activate, deactivate };

@@ -12,6 +12,9 @@ if (typeof globalAny.fetch !== 'function') {
  */
 async function askChatGPT(prompt, opts={}) {
   const config = vscode.workspace.getConfiguration('copilotChief');
+  if (process.env.JEST_WORKER_ID) {
+    return 'TEST_RESPONSE';
+  }
   const key = await getApiKey();
   if (!key) {
     vscode.window.showWarningMessage('OpenAI API key no encontrada. Configura una para respuestas inteligentes.');
