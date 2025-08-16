@@ -446,6 +446,8 @@ function downloadAndInstall(url, name, output, versionHint) {
             file.on('finish', () => {
                 file.close(() => {
                     output.appendLine('[update] VSIX descargado en ' + filePath);
+                    output.appendLine('[update][diag] PATH=' + process.env.PATH);
+                    output.appendLine('[update][diag] execPath=' + process.execPath);
                     const attempts = [];
                     const path = require('path');
                     const exeDir = path.dirname(process.execPath);
@@ -466,6 +468,14 @@ function downloadAndInstall(url, name, output, versionHint) {
                         }
                         const cmd = attempts.shift();
                         output.appendLine('[update] Intentando instalación con: ' + cmd);
+                        // Pequeña prueba previa (which/where)
+                        try {
+                            if (process.platform.startsWith('win')) {
+                                cp.exec('where code', (e, so) => { if(!e) output.appendLine('[update][diag] where code -> ' + so.trim()); });
+                            } else {
+                                cp.exec('which code', (e, so) => { if(!e) output.appendLine('[update][diag] which code -> ' + so.trim()); });
+                            }
+                        } catch {}
                         cp.exec(cmd, { timeout: 20000 }, (err, stdout, stderr) => {
                             if (err) {
                                 output.appendLine('[update] Falló comando: ' + err.message + (stderr? (' | ' + stderr):''));
@@ -489,6 +499,8 @@ function downloadAndInstall(url, name, output, versionHint) {
                                   vscode.window.showInformationMessage('Ruta copiada. Usa: Extensiones > ... > Instalar desde VSIX.');
                               }
                           });
+                        // intento extra: abrir carpeta del archivo
+                        try { vscode.env.openExternal(vscode.Uri.file(require('path').dirname(filePath))); } catch {}
                     };
                     tryNext();
                 });
