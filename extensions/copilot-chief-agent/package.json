@@ -2,7 +2,7 @@
   "name": "copilot-chief-agent",
   "displayName": "Copilot Chief Agent",
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "publisher": "jautomore",
   "engines": {
     "vscode": "^1.75.0"
@@ -43,8 +43,8 @@
       {
         "command": "copilotChief.commands",
         "title": "Copilot Chief: Comandos"
-      }
-      ,{
+      },
+      {
         "command": "copilotChief.forceUpdateNow",
         "title": "Copilot Chief: Forzar Instalación Última Versión"
       }
