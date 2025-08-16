@@ -1005,3 +1005,7 @@
 * chore: normalize gpt-test line endings (c4766de)
 * feat(update): auto install & feed logging for updater (dfce6d6)
 
+## v0.1.61 - 2025-08-16
+* chore: normalize gpt-test line endings (post redirect fix) (3e9b609)
+* fix(update): follow 3xx redirects in fetchJson (302 issue) (4beb965)
+
