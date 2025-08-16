@@ -769,3 +769,28 @@
 ## v0.1.27 - 2025-08-15
 * chore(agent): auto bump version to 0.1.27 [skip-agent] (de17911)
 
+## v0.1.28 - 2025-08-16
+* chore(agent): auto bump version to 0.1.28 [skip-agent] (a79b727)
+* ci(agent): always bump patch version for releases (0efc751)
+* chore: trigger release (bump) (f3cb2a7)
+* tests: add listener/error branches and raise thresholds (85/85/80/65) (99abb99)
+* tests: expose commit helpers + add gitCommitStep/sanitize tests (37cf6c5)
+* tests: add agent/apiKeyStore coverage raise thresholds (80/70/65/55) (76f188c)
+* tests: expand suite (openaiClient, parser, steps, dirs) raise coverage thresholds (5c69d28)
+* tests: add scanner & memory tests, raise coverage thresholds (cc87e8a)
+* chore(tests): lower coverage thresholds to unblock release (df0e76c)
+* refactor(memory): move memory file to .copilot-chief/state.json with migration (8e7a31e)
+* chore(lint+tests): add eslint, coverage thresholds, fix lint issues (e508d3d)
+* chore(ci): add unit test step before packaging (ea8b1d2)
+* feat(init-wizard): folder selection, plan parsing, env validation, autosave, tests (d4d359a)
+* fix(update): robust multi-attempt VSIX install with manual fallback (3082d58)
+* feat(agent): status bar key + agent + menu items and commands palette (bcc9b29)
+* feat(agent): hide key input when present & add testApiKey command (f2993fb)
+* feat(agent): key status badge, test button & precheck before start (1378aa0)
+* feat(agent): add API key input in status panel (8b235d2)
+* chore(ci): robust release creation (wait, fallback, verify) [skip-agent] (0b61259)
+* chore(ci): make AI review optional & non-blocking [skip-agent] (832487a)
+* chore(ci): replace setup-node cache with actions/cache [skip-agent] (b85ffb7)
+* chore(ci): switch to gh cli release creation [skip-agent] (4471919)
+* chore(ci): add npm cache & release verify step [skip-agent] (0225b16)
+
