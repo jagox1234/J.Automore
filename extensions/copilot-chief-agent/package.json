@@ -4,6 +4,7 @@
   "description": "Agente autónomo que dirige a GitHub Copilot para cumplir objetivos.",
   "version": "0.1.58",
   "publisher": "jautomore",
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.75.0"
   },
