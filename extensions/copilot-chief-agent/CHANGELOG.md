@@ -814,3 +814,7 @@
 * chore(agent): auto bump version to 0.1.33 [skip-agent] (93dd40a)
 * feat(update): forzar auto-update en cada arranque (doble check) (351caa6)
 
+## v0.1.34 - 2025-08-16
+* chore(agent): auto bump version to 0.1.34 [skip-agent] (b124f57)
+* chore(update): añadir diagnósticos instalación auto (vscode CLI) (c540e46)
+
