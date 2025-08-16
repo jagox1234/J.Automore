@@ -1,3 +1,16 @@
+## v0.1.58 - 2025-08-16
+### Added
+* Sistema de actualización avanzado: descarga VSIX automática si disponible, verificación opcional SHA256 (`updateIntegrityEnforce`).
+* Config `acceptPrereleases` para incluir prereleases en el chequeo.
+* Cache anti-spam de notificación y throttle mínimo 1min.
+* Instalación fallback `git pull` cuando no hay VSIX.
+
+### Changed
+* Comandos `Buscar Actualizaciones` y `Forzar Instalación` usan ahora GitHub Releases API y lógica de integridad.
+
+### Internal
+* Refactor update checker (`checkForUpdates`) consolidado con scheduling.
+
 ## v0.1.57 - 2025-08-16
 ### Added
 * Vista de Pasos (TreeView `Copilot Chief Pasos`) mostrando progreso y duración.
