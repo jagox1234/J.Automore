@@ -16,6 +16,8 @@ let running = false;
 let paused = false;
 let currentStep = null; // mantiene referencia al paso actual insertado
 let waitingManual = false; // cuando confirmEachStep está activado y esperamos 'next'
+let _repeatCounter = 0; // guard para evitar loops infinitos si markStepComplete no persiste
+let _lastStepId = null;
 
 async function startAgent(objective) {
   if (planning) return;
@@ -55,6 +57,17 @@ async function executeNextStep() {
   if (!step) {
     vscode.window.showInformationMessage('Copilot Chief: Objetivo completado.');
   running = false;
+    return;
+  }
+  if (step === _lastStepId) {
+    _repeatCounter++;
+  } else {
+    _repeatCounter = 0;
+    _lastStepId = step;
+  }
+  if (_repeatCounter > 5) {
+    vscode.window.showWarningMessage('Copilot Chief: detectado bucle en el mismo paso, abortando.');
+    running = false;
     return;
   }
   // Si confirmEachStep está activo y ya hemos insertado uno, esperar confirmación manual antes de avanzar
