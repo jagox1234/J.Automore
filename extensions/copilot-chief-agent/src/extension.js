@@ -69,8 +69,58 @@ function activate(context) {
         if(!vscode.workspace.workspaceFolders){ return vscode.window.showWarningMessage('Abre una carpeta para usar el bridge.'); }
         openBridgeFile(vscode.workspace.workspaceFolders[0].uri.fsPath);
     });
-    const consoleCmd = vscode.commands.registerCommand('copilotChief.console', () => {
-        activity.show(true);
+    const consoleCmd = vscode.commands.registerCommand('copilotChief.console', () => { activity.show(true); });
+        const testConsoleCmd = vscode.commands.registerCommand('copilotChief.testConsole', () => {
+                const panel = vscode.window.createWebviewPanel('copilotChiefTestConsole','Copilot Chief - Consola de Pruebas', vscode.ViewColumn.Active, { enableScripts:true });
+            const htmlTest = `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+                <style>
+                body{font-family:system-ui,sans-serif;margin:0;background:#1e1e1e;color:#eee;}
+                header{padding:10px 16px;background:#252526;border-bottom:1px solid #333;}h1{margin:0;font-size:15px;}
+                main{display:flex;height:calc(100vh - 150px);} .col{flex:1;display:flex;flex-direction:column;border-right:1px solid #333;} .col:last-child{border-right:none;}
+                .col header{background:#202124;} textarea{flex:1;background:#111;color:#eee;border:none;padding:8px;font-family:monospace;resize:none;font-size:12px;outline:none;}
+                .actions{display:flex;gap:6px;padding:8px;background:#252526;border-top:1px solid #333;}button{background:#0d6efd;border:none;color:#fff;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;}button.alt{background:#444;}button:hover{background:#1d78ff;}button.alt:hover{background:#555;}
+                .log{height:140px;overflow:auto;background:#111;font-size:11px;padding:6px;border-top:1px solid #333;} .tag{font-size:10px;padding:2px 4px;border-radius:3px;margin-right:4px;background:#2563eb;} .tag.b{background:#d97706;} .tag.q{background:#9333ea;} .tag.r{background:#16a34a;}
+                </style></head><body>
+                <header><h1>Consola de Pruebas (Doble Interacción)</h1></header>
+                <main>
+                    <div class='col'>
+                        <header><strong>Actor A (emite)</strong></header>
+                        <textarea id='aInput' placeholder='Acción / pregunta hacia B...'></textarea>
+                        <div class='actions'>
+                            <button onclick='emitA()'>Enviar a B</button>
+                            <button class='alt' onclick='clearA()'>Limpiar</button>
+                        </div>
+                    </div>
+                    <div class='col'>
+                        <header><strong>Actor B (responde)</strong></header>
+                        <textarea id='bInput' placeholder='Respuesta o pregunta hacia A...'></textarea>
+                        <div class='actions'>
+                            <button onclick='emitB()'>Enviar a A</button>
+                            <button class='alt' onclick='clearB()'>Limpiar</button>
+                        </div>
+                    </div>
+                </main>
+                <div class='log' id='log'></div>
+                <script>
+                const vscode = acquireVsCodeApi();
+                function log(html){ const el=document.getElementById('log'); el.innerHTML += html; el.scrollTop = el.scrollHeight; }
+                function sanitize(s){ const m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}; return s.replace(/[&<>"']/g,c=>m[c]||c); }
+            function emitA(){ const v=document.getElementById('aInput').value.trim(); if(!v) return; const isQ=/[?¿]$/.test(v); log('<div><span class="tag'+(isQ?' q':'')+'">A→B'+(isQ?'?':'')+'</span>'+sanitize(v)+'</div>'); vscode.postMessage({kind:'a2b', value:v, question:isQ}); }
+            function emitB(){ const v=document.getElementById('bInput').value.trim(); if(!v) return; const isQ=/[?¿]$/.test(v); log('<div><span class="tag b'+(isQ?' q':'')+'">B→A'+(isQ?'?':'')+'</span>'+sanitize(v)+'</div>'); vscode.postMessage({kind:'b2a', value:v, question:isQ}); }
+                function clearA(){ document.getElementById('aInput').value=''; }
+                function clearB(){ document.getElementById('bInput').value=''; }
+                window.addEventListener('message', e => {
+                       if(e.data.kind==='a2b'){ log('<div><span class="tag r">Resp A</span>'+sanitize(e.data.value)+'</div>'); }
+                       if(e.data.kind==='b2a'){ log('<div><span class="tag r">Resp B</span>'+sanitize(e.data.value)+'</div>'); }
+                });
+                </script>
+            </body></html>`;
+            panel.webview.html = htmlTest;
+            panel.webview.onDidReceiveMessage(msg => {
+                        // Por ahora eco simple; se podría integrar con agente para respuestas automáticas
+                        if(msg.kind==='a2b' && !msg.question){ panel.webview.postMessage({ kind:'a2b', value: 'ACK A:'+ msg.value.slice(0,60) }); }
+                        if(msg.kind==='b2a' && !msg.question){ panel.webview.postMessage({ kind:'b2a', value: 'ACK B:'+ msg.value.slice(0,60) }); }
+                });
     });
     const testKeyCmd = vscode.commands.registerCommand('copilotChief.testApiKey', async () => {
         const k = await apiKeyStore.getApiKey();
@@ -148,7 +198,7 @@ function activate(context) {
     const regenCmd = vscode.commands.registerCommand('copilotChief.regeneratePlan', () => regeneratePlan());
     const nextCmd = vscode.commands.registerCommand('copilotChief.nextStep', () => manualAdvanceStep());
 
-    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, output, activity);
+    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, testConsoleCmd, output, activity);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeos de actualización omitidos en test para no dejar handles abiertos

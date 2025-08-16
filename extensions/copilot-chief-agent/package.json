@@ -72,6 +72,10 @@
         "command": "copilotChief.console",
         "title": "Copilot Chief: Consola de Actividad"
       }
+      ,{
+        "command": "copilotChief.testConsole",
+        "title": "Copilot Chief: Consola de Pruebas (Interacción Doble)"
+      }
     ],
     "configuration": {
       "title": "Copilot Chief Agent",

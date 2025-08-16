@@ -1,3 +1,10 @@
+## v0.1.50 - 2025-08-16
+### Added
+* Consola de Pruebas doble interacción (`Copilot Chief: Consola de Pruebas (Interacción Doble)`) para simular diálogo A↔B.
+
+### Changed
+* Refactor HTML embebido consola actividad pruebas.
+
 ## v0.1.49 - 2025-08-16
 ### Added
 * Consola de actividad (`Copilot Chief: Abrir Consola`) mostrando eventos del bridge y ciclos de polling.
