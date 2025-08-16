@@ -439,8 +439,18 @@ function downloadAndInstall(url, name, output, versionHint) {
         const filePath = require('path').join(require('os').tmpdir(), name);
         output.appendLine('[update] Descargando ' + url);
         const fs = require('fs');
-        const req = https.get(url, res => {
-            if (res.statusCode !== 200) { output.appendLine('[update] descarga HTTP ' + res.statusCode); return resolve(); }
+        const maxRedirects = 5;
+        const fetchUrl = (theUrl, depth=0) => {
+            const req = https.get(theUrl, res => {
+                if (res.statusCode === 302 || res.statusCode === 301) {
+                    const loc = res.headers.location;
+                    if (!loc) { output.appendLine('[update] 302 sin Location'); return resolve(); }
+                    if (depth >= maxRedirects) { output.appendLine('[update] Demasiados redirects'); return resolve(); }
+                    output.appendLine('[update] Siguiendo redirect -> ' + loc);
+                    res.resume();
+                    return fetchUrl(loc, depth+1);
+                }
+                if (res.statusCode !== 200) { output.appendLine('[update] descarga HTTP ' + res.statusCode); return resolve(); }
             const file = fs.createWriteStream(filePath);
             res.pipe(file);
             file.on('finish', () => {
@@ -505,8 +515,10 @@ function downloadAndInstall(url, name, output, versionHint) {
                     tryNext();
                 });
             });
-        });
-        req.on('error', e => { output.appendLine('[update] error descarga: ' + e.message); resolve(); });
+            });
+            req.on('error', e => { output.appendLine('[update] error descarga: ' + e.message); resolve(); });
+        };
+        fetchUrl(url);
     });
 }
 
