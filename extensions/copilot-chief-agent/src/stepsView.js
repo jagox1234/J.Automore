@@ -12,9 +12,21 @@ class StepsTreeDataProvider {
   getTreeItem(element){ return element; }
   getChildren(){
     const root = this.getRoot();
-    if(!root) return [];
+    if(!root){
+      const info = new vscode.TreeItem('Abre una carpeta para usar Copilot Chief', vscode.TreeItemCollapsibleState.None);
+      info.iconPath = new vscode.ThemeIcon('folder');
+      info.contextValue = 'info';
+      return [info];
+    }
     const mem = loadMemory(root);
     const stepsRaw = mem.steps || mem.stepsRaw || [];
+    if(!stepsRaw.length){
+      const placeholder = new vscode.TreeItem('No hay plan activo. Usa "Copilot Chief: Iniciar Agente".', vscode.TreeItemCollapsibleState.None);
+      placeholder.iconPath = new vscode.ThemeIcon('play');
+      placeholder.command = { command:'copilotChief.startAgent', title:'Iniciar Agente' };
+      placeholder.contextValue = 'info';
+      return [placeholder];
+    }
     const completed = new Set(mem.completed||[]);
     const items = [];
     const stepMeta = mem.stepMeta || {};

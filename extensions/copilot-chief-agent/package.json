@@ -20,7 +20,8 @@
       "explorer": [
         {
           "id": "copilotChiefStepsView",
-          "name": "Copilot Chief Pasos"
+          "name": "Copilot Chief Pasos",
+          "icon": "$(robot)"
         }
       ]
     },
