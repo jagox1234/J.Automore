@@ -904,3 +904,6 @@
 ## v0.1.48 - 2025-08-16
 * docs(changelog): add entries for 0.1.41-0.1.46 (b31c4bd)
 
+## v0.1.49 - 2025-08-16
+* feat(command-bridge): notifications + config (v0.1.48) (e631347)
+
