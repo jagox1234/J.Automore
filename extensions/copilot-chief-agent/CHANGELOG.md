@@ -830,3 +830,7 @@
 * chore(agent): auto bump version to 0.1.37 [skip-agent] (00aba27)
 * feat(ui): mostrar versión en status bar (19c7986)
 
+## v0.1.38 - 2025-08-16
+* chore(agent): auto bump version to 0.1.38 [skip-agent] (90609e9)
+* feat(update): fallback a lista de releases para encontrar VSIX más reciente (31f8e76)
+
