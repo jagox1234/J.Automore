@@ -91,6 +91,10 @@
       {
         "command": "copilotChief.captureSnapshot",
         "title": "Copilot Chief: Capturar Snapshot Diagnóstico"
+      },
+      {
+        "command": "copilotChief.liveFeed",
+        "title": "Copilot Chief: Feed en Vivo"
       }
     ],
     "configuration": {

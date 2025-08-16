@@ -15,6 +15,8 @@ const fs = require('fs');
 let _testConsoleSessions = new Map(); // panelId -> { transcript: [] }
 // Diagnostics
 const { initDiagnostics, logDiag, toggleDiagnostics, openDiagnosticsFile } = require('./diagnostics');
+// Live feed globals
+let _liveFeedPanel = null; let _liveFeedBuffer = [];
 
 function activate(context) {
     const output = vscode.window.createOutputChannel('Copilot Chief');
@@ -24,6 +26,7 @@ function activate(context) {
         const ts = new Date().toISOString().slice(11,19);
         activity.appendLine(`[${ts}] [${type}] ${msg}`);
         try { logDiag('activity', { type, msg }); } catch {}
+        try { pushLiveFeed(type, msg); } catch {}
     };
     output.appendLine('[activate] Iniciando extensión Copilot Chief');
     try { logDiag('lifecycle.activate', {}); } catch {}
@@ -135,25 +138,42 @@ function activate(context) {
                 'npm install --no-audit --no-fund',
                 'npm test --silent'
             ];
-            // Append package if script exists
             try { const pkg = require('../package.json'); if(pkg.scripts && pkg.scripts.package){ base.push('npm run package'); } } catch {}
             const pendingOrRunning = new Set(list.filter(r=>['pending','running'].includes(r.status)).map(r=>r.command));
             for(const [i,cmd] of base.entries()){
-                if(pendingOrRunning.has(cmd)) continue; // avoid duplicates
-                list.push({
-                    id: 'auto-'+(now+i),
-                    command: cmd,
-                    status: 'pending',
-                    createdAt: new Date(now+i).toISOString()
-                });
+                if(pendingOrRunning.has(cmd)) continue;
+                list.push({ id: 'auto-'+(now+i), command: cmd, status: 'pending', createdAt: new Date(now+i).toISOString() });
             }
             fs.writeFileSync(file, JSON.stringify(list,null,2),'utf8');
             vscode.window.showInformationMessage('Bridge: comandos encolados ('+base.length+').');
             logDiag('bridge.autoEnqueue', { count: base.length });
             logActivity('bridge','auto enqueue '+base.length+' cmds');
-            // Optionally trigger immediate poll
             try { processBridge(root, output, logActivity); } catch {}
         } catch(e){ vscode.window.showErrorMessage('Error enqueue: '+e.message); }
+    });
+    const liveFeedCmd = vscode.commands.registerCommand('copilotChief.liveFeed', () => {
+        if(_liveFeedPanel){ try { _liveFeedPanel.reveal(); return; } catch { _liveFeedPanel = null; }}
+        _liveFeedPanel = vscode.window.createWebviewPanel('copilotChiefLiveFeed','Copilot Chief - Feed en Vivo', vscode.ViewColumn.Active, { enableScripts:true, retainContextWhenHidden:true });
+        const html = `<!DOCTYPE html><html><head><meta charset='utf-8'/><style>
+        body{margin:0;font-family:system-ui,sans-serif;background:#111;color:#eee;}
+        header{padding:10px 16px;background:#1e1e1e;border-bottom:1px solid #333;display:flex;align-items:center;gap:12px;}
+        h1{font-size:15px;margin:0;} button{background:#0d6efd;color:#fff;border:none;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;} button:hover{background:#1d78ff;}
+        #log{font-family:monospace;font-size:11px;line-height:1.35;padding:10px;max-height:calc(100vh - 54px);overflow:auto;white-space:pre-wrap;}
+        .line{padding:2px 4px;border-left:3px solid transparent;margin-bottom:2px;}
+        .evt-agent{border-color:#2563eb;background:#1e293b;} .evt-bridge{border-color:#d97706;background:#3b2f1e;} .evt-openai{border-color:#9333ea;background:#312042;} .evt-info{border-color:#4b5563;background:#1f2429;}
+        .ts{opacity:.55;margin-right:4px;} .tag{display:inline-block;font-size:10px;padding:0 4px;margin-right:4px;border-radius:3px;background:#444;}
+        </style></head><body><header><h1>Feed en Vivo</h1><button onclick='clearLog()'>Limpiar</button><button onclick='pause()' id='pp'>Pausar</button><span id='stat' style='font-size:11px;opacity:.7;'></span></header><div id='log'></div>
+        <script>
+    const vscode = acquireVsCodeApi(); let paused=false; function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]||c));}
+        function add(l){ if(paused) return; const el=document.getElementById('log'); el.insertAdjacentHTML('afterbegin', l); if(el.children.length>1200){ for(let i=el.children.length-1;i>1000;i--) el.removeChild(el.children[i]); }}
+        function clearLog(){ document.getElementById('log').innerHTML=''; }
+        function pause(){ paused=!paused; document.getElementById('pp').textContent = paused? 'Reanudar':'Pausar'; }
+        window.addEventListener('message', e=>{ if(e.data.kind==='batch'){ e.data.items.forEach(html=>add(html)); } else if(e.data.kind==='line'){ add(e.data.html); } });
+        </script></body></html>`;
+        _liveFeedPanel.webview.html = html;
+        // Seed existing buffer
+        if(_liveFeedBuffer.length){ _liveFeedPanel.webview.postMessage({ kind:'batch', items:_liveFeedBuffer.slice(-200) }); }
+        _liveFeedPanel.onDidDispose(()=>{ _liveFeedPanel=null; });
     });
         const testConsoleCmd = vscode.commands.registerCommand('copilotChief.testConsole', () => {
                 const panel = vscode.window.createWebviewPanel('copilotChiefTestConsole','Copilot Chief - Consola de Pruebas', vscode.ViewColumn.Active, { enableScripts:true });
@@ -315,7 +335,7 @@ function activate(context) {
     const regenCmd = vscode.commands.registerCommand('copilotChief.regeneratePlan', () => regeneratePlan());
     const nextCmd = vscode.commands.registerCommand('copilotChief.nextStep', () => manualAdvanceStep());
 
-    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, testConsoleCmd, output, activity, diagOpenCmd, diagToggleCmd, dumpStateCmd, snapshotCmd, autoEnqueueCmd);
+    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, testConsoleCmd, output, activity, diagOpenCmd, diagToggleCmd, dumpStateCmd, snapshotCmd, autoEnqueueCmd, liveFeedCmd);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeos de actualización omitidos en test para no dejar handles abiertos
@@ -867,6 +887,16 @@ function deactivate() {
         const t = _timers.pop();
         try { clearTimeout(t); clearInterval(t); } catch {}
     }
+}
+
+function pushLiveFeed(type, msg){
+    const ts = new Date().toISOString().slice(11,19);
+    let cat='evt-info';
+    if(/^agent\./.test(type)) cat='evt-agent'; else if(/^bridge/.test(type)) cat='evt-bridge'; else if(/^openai\./.test(type)) cat='evt-openai';
+    const safe = (msg||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    const html = `<div class="line ${cat}"><span class="ts">${ts}</span><span class="tag">${type}</span>${safe}</div>`;
+    _liveFeedBuffer.push(html); if(_liveFeedBuffer.length>2000) _liveFeedBuffer = _liveFeedBuffer.slice(-1500);
+    if(_liveFeedPanel){ try { _liveFeedPanel.webview.postMessage({ kind:'line', html }); } catch {} }
 }
 
 module.exports = { activate, deactivate };

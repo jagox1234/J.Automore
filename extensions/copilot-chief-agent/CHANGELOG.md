@@ -1,3 +1,7 @@
+## v0.1.55 - 2025-08-16
+### Added
+* Feed en vivo (panel) que muestra eventos del agente y bridge en tiempo real: comando `Copilot Chief: Feed en Vivo`.
+
 ## v0.1.53 - 2025-08-16
 ### Added
 * Comando `Copilot Chief: Encolar Pipeline (Bridge)` que añade automáticamente una secuencia de comandos (pull, install, test, package) al `requests.json` evitando edición manual.
