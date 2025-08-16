@@ -25,12 +25,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Cache extension dependencies
-        uses: actions/cache@v4
-        with:
-          path: extensions/copilot-chief-agent/node_modules
-          key: copilot-chief-node-${{ hashFiles('extensions/copilot-chief-agent/package-lock.json') }}
-          restore-keys: copilot-chief-node-
+          cache: npm
+          cache-dependency-path: extensions/copilot-chief-agent/package-lock.json
 
       - name: Install tooling
         run: |
