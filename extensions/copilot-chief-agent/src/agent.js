@@ -80,11 +80,28 @@ async function executeNextStep() {
   }
   // Si confirmEachStep está activo y ya hemos insertado uno, esperar confirmación manual antes de avanzar
   if (waitingManual) { return; }
-  const editor = vscode.window.activeTextEditor;
+  let editor = vscode.window.activeTextEditor;
   if (!editor) {
-    vscode.window.showWarningMessage('Abre un archivo para insertar instrucciones del paso: ' + step);
-    return;
+    // Crear/abrir un archivo sandbox para asegurar que el usuario vea actividad
+    try {
+      const path = require('path');
+      const fs = require('fs');
+      const sandboxDir = path.join(workspaceRootPath, '.copilot-chief');
+      const sandboxFile = path.join(sandboxDir, 'agent-sandbox.txt');
+      if(!fs.existsSync(sandboxDir)) fs.mkdirSync(sandboxDir, { recursive:true });
+      if(!fs.existsSync(sandboxFile)) fs.writeFileSync(sandboxFile, '// Archivo sandbox de Copilot Chief\n','utf8');
+      const doc = await vscode.workspace.openTextDocument(sandboxFile);
+      editor = await vscode.window.showTextDocument(doc, { preview:false, preserveFocus:false });
+      vscode.window.showInformationMessage('Copilot Chief: usando sandbox .copilot-chief/agent-sandbox.txt para ejecutar pasos.');
+      try { logDiag('agent.sandbox.opened', {}); } catch {}
+    } catch (e) {
+      vscode.window.showWarningMessage('No se pudo crear sandbox: ' + e.message);
+      return;
+    }
   }
+  // Feedback visual del paso
+  try { vscode.window.setStatusBarMessage('Copilot Chief: ejecutando paso "' + step + '"', 5000); } catch {}
+  vscode.window.showInformationMessage('Copilot Chief: ejecutando paso -> ' + step);
   await editor.edit(editBuilder => {
     editBuilder.insert(editor.selection.active, `\n// Copilot Chief Paso: ${step}\n// Implementa este paso. Si necesitas aclaración, formula una pregunta.\n`);
   });
