@@ -133,7 +133,7 @@ function applyMemoryPlan(mem){
   } catch (e){ lastFeedback = 'Error aplicando plan: '+e.message; }
 }
 
-module.exports = { startAgent, agentState, applyMemoryPlan };
+module.exports = { startAgent, agentState, applyMemoryPlan, gitCommitStep, sanitizeCommitMessage };
 
 async function gitCommitStep(step) {
   return new Promise((resolve, reject) => {
