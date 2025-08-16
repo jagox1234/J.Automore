@@ -810,3 +810,7 @@
 * chore(agent): auto bump version to 0.1.32 [skip-agent] (d2509c4)
 * feat(update): comando forceUpdateNow y flag force en check (225ddcb)
 
+## v0.1.33 - 2025-08-16
+* chore(agent): auto bump version to 0.1.33 [skip-agent] (93dd40a)
+* feat(update): forzar auto-update en cada arranque (doble check) (351caa6)
+
