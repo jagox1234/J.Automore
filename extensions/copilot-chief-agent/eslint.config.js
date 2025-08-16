@@ -21,7 +21,7 @@ export default [
     }
   },
   {
-    files: ['tests/**/*.test.js'],
+    files: ['tests/**/*.test.js','tests/__mocks__/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'commonjs',
@@ -30,7 +30,9 @@ export default [
         // Jest globals
         describe: true,
         test: true,
-        expect: true
+        expect: true,
+        jest: true,
+        module: true
       }
     }
   }

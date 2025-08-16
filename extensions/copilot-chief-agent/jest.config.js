@@ -5,7 +5,7 @@ module.exports = {
   collectCoverage: true,
   collectCoverageFrom: ['src/**/*.js','!src/extension.js'],
   coverageThreshold: {
-    // Raised after adding initial tests (scanner + memory manager + parsers)
-    global: { lines: 30, statements: 30, functions: 20, branches: 20 }
+    // Raised after broader test suite (openai client, step manager, directory helper)
+    global: { lines: 50, statements: 50, functions: 40, branches: 35 }
   }
 };
