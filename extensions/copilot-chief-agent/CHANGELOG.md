@@ -1,3 +1,11 @@
+## v0.1.56 - 2025-08-16
+### Added
+* Config `liveFeedAutoOpen` (default true) para abrir feed automáticamente al iniciar agente.
+* Mejora inicial del feed para futura filtración.
+* Estado Rápido (quickStatus) muestra un resumen en notificación.
+* CodeLens opcional sobre pasos.
+* Contadores en feed (WIP) y botón refresh futuro.
+
 ## v0.1.55 - 2025-08-16
 ### Added
 * Feed en vivo (panel) que muestra eventos del agente y bridge en tiempo real: comando `Copilot Chief: Feed en Vivo`.

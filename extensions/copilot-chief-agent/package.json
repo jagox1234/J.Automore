@@ -95,6 +95,10 @@
       {
         "command": "copilotChief.liveFeed",
         "title": "Copilot Chief: Feed en Vivo"
+      },
+      {
+        "command": "copilotChief.quickStatus",
+        "title": "Copilot Chief: Estado Rápido"
       }
     ],
     "configuration": {
@@ -207,6 +211,16 @@
           "type": "string",
           "default": ".copilot-chief/diagnostics.log",
           "description": "Ruta (relativa a la raíz) del archivo de log de diagnostics verboso."
+        },
+        "copilotChief.liveFeedAutoOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Abrir automáticamente el Feed en Vivo al iniciar el agente."
+        },
+        "copilotChief.showCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Muestra CodeLens sobre líneas de pasos para marcar completado o saltar."
         }
       }
     }

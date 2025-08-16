@@ -66,6 +66,10 @@ function activate(context) {
         // Start agent (will still internally scan full project for now; refinement later to restrict)
         startAgent(objective);
         try { openStatusPanel(context); } catch {}
+        try {
+            const cfg = vscode.workspace.getConfiguration('copilotChief');
+            if(cfg.get('liveFeedAutoOpen')){ vscode.commands.executeCommand('copilotChief.liveFeed'); }
+        } catch {}
     });
     const manualUpdate = vscode.commands.registerCommand('copilotChief.checkUpdates', () => {
         checkForUpdate(output, context);
@@ -76,6 +80,13 @@ function activate(context) {
         vscode.window.showInformationMessage('Forzado ciclo de actualización (si había versión nueva).');
     });
     const statusPanel = vscode.commands.registerCommand('copilotChief.statusPanel', () => openStatusPanel(context));
+    const quickStatus = vscode.commands.registerCommand('copilotChief.quickStatus', () => {
+        try {
+            const st = agentState ? agentState() : { running:false, planning:false };
+            const msg = `Estado: ${st.running? (st.paused? 'Pausado':'En ejecución') : (st.planning? 'Planificando':'Inactivo')} | Objetivo: ${st.objective||'—'} | Pasos: ${st.total?(st.total-st.remaining)+'/'+st.total:'—'}`;
+            vscode.window.showInformationMessage(msg);
+        } catch(e){ vscode.window.showWarningMessage('Estado no disponible: '+e.message); }
+    });
     const openRequests = vscode.commands.registerCommand('copilotChief.openRequests', () => {
         if(!vscode.workspace.workspaceFolders){ return vscode.window.showWarningMessage('Abre una carpeta para usar el bridge.'); }
         openBridgeFile(vscode.workspace.workspaceFolders[0].uri.fsPath);
@@ -154,21 +165,34 @@ function activate(context) {
     const liveFeedCmd = vscode.commands.registerCommand('copilotChief.liveFeed', () => {
         if(_liveFeedPanel){ try { _liveFeedPanel.reveal(); return; } catch { _liveFeedPanel = null; }}
         _liveFeedPanel = vscode.window.createWebviewPanel('copilotChiefLiveFeed','Copilot Chief - Feed en Vivo', vscode.ViewColumn.Active, { enableScripts:true, retainContextWhenHidden:true });
-        const html = `<!DOCTYPE html><html><head><meta charset='utf-8'/><style>
+                const html = `<!DOCTYPE html><html><head><meta charset='utf-8'/><style>
         body{margin:0;font-family:system-ui,sans-serif;background:#111;color:#eee;}
         header{padding:10px 16px;background:#1e1e1e;border-bottom:1px solid #333;display:flex;align-items:center;gap:12px;}
-        h1{font-size:15px;margin:0;} button{background:#0d6efd;color:#fff;border:none;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;} button:hover{background:#1d78ff;}
+                h1{font-size:15px;margin:0;} button{background:#0d6efd;color:#fff;border:none;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;} button:hover{background:#1d78ff;}
+                .filters{margin-left:auto;display:flex;gap:6px;align-items:center;font-size:11px;}
+                .filters label{display:flex;gap:4px;align-items:center;}
         #log{font-family:monospace;font-size:11px;line-height:1.35;padding:10px;max-height:calc(100vh - 54px);overflow:auto;white-space:pre-wrap;}
         .line{padding:2px 4px;border-left:3px solid transparent;margin-bottom:2px;}
         .evt-agent{border-color:#2563eb;background:#1e293b;} .evt-bridge{border-color:#d97706;background:#3b2f1e;} .evt-openai{border-color:#9333ea;background:#312042;} .evt-info{border-color:#4b5563;background:#1f2429;}
         .ts{opacity:.55;margin-right:4px;} .tag{display:inline-block;font-size:10px;padding:0 4px;margin-right:4px;border-radius:3px;background:#444;}
-        </style></head><body><header><h1>Feed en Vivo</h1><button onclick='clearLog()'>Limpiar</button><button onclick='pause()' id='pp'>Pausar</button><span id='stat' style='font-size:11px;opacity:.7;'></span></header><div id='log'></div>
+                </style></head><body><header><h1>Feed en Vivo</h1><button onclick='clearLog()'>Limpiar</button><button onclick='pause()' id='pp'>Pausar</button><div class='filters'>
+                <label><input type='checkbox' id='fAgent' checked/>agent</label>
+                <label><input type='checkbox' id='fBridge' checked/>bridge</label>
+                <label><input type='checkbox' id='fOpenAI' checked/>openai</label>
+                <label><input type='checkbox' id='fInfo' checked/>info</label>
+                </div></header><div id='log'></div>
         <script>
     const vscode = acquireVsCodeApi(); let paused=false; function esc(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]||c));}
         function add(l){ if(paused) return; const el=document.getElementById('log'); el.insertAdjacentHTML('afterbegin', l); if(el.children.length>1200){ for(let i=el.children.length-1;i>1000;i--) el.removeChild(el.children[i]); }}
         function clearLog(){ document.getElementById('log').innerHTML=''; }
         function pause(){ paused=!paused; document.getElementById('pp').textContent = paused? 'Reanudar':'Pausar'; }
-        window.addEventListener('message', e=>{ if(e.data.kind==='batch'){ e.data.items.forEach(html=>add(html)); } else if(e.data.kind==='line'){ add(e.data.html); } });
+                function allowed(cat){
+                    return (cat==='evt-agent' && document.getElementById('fAgent').checked) ||
+                                 (cat==='evt-bridge' && document.getElementById('fBridge').checked) ||
+                                 (cat==='evt-openai' && document.getElementById('fOpenAI').checked) ||
+                                 (cat==='evt-info' && document.getElementById('fInfo').checked);
+                }
+    window.addEventListener('message', e=>{ if(e.data.kind==='batch'){ e.data.items.forEach(html=>{ const m=/class="line ([^ "]+)"/.exec(html)||[]; if(allowed(m[1]||'')) add(html); }); } else if(e.data.kind==='line'){ const m=/class="line ([^ "]+)"/.exec(e.data.html)||[]; if(allowed((m[1]||''))) add(e.data.html); } });
         </script></body></html>`;
         _liveFeedPanel.webview.html = html;
         // Seed existing buffer
@@ -335,7 +359,7 @@ function activate(context) {
     const regenCmd = vscode.commands.registerCommand('copilotChief.regeneratePlan', () => regeneratePlan());
     const nextCmd = vscode.commands.registerCommand('copilotChief.nextStep', () => manualAdvanceStep());
 
-    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, testConsoleCmd, output, activity, diagOpenCmd, diagToggleCmd, dumpStateCmd, snapshotCmd, autoEnqueueCmd, liveFeedCmd);
+    context.subscriptions.push(disposable, manualUpdate, forceUpdate, diagnose, statusPanel, quickStatus, setKeyCmd, testKeyCmd, commandsCmd, pauseCmd, resumeCmd, stopCmd, skipCmd, regenCmd, nextCmd, openRequests, consoleCmd, testConsoleCmd, output, activity, diagOpenCmd, diagToggleCmd, dumpStateCmd, snapshotCmd, autoEnqueueCmd, liveFeedCmd);
     output.appendLine('[activate] Comando registrado');
 
     // Chequeos de actualización omitidos en test para no dejar handles abiertos
@@ -898,5 +922,25 @@ function pushLiveFeed(type, msg){
     _liveFeedBuffer.push(html); if(_liveFeedBuffer.length>2000) _liveFeedBuffer = _liveFeedBuffer.slice(-1500);
     if(_liveFeedPanel){ try { _liveFeedPanel.webview.postMessage({ kind:'line', html }); } catch {} }
 }
+
+// CodeLens provider para marcar pasos manualmente
+vscode.languages.registerCodeLensProvider({ pattern:'**/*.{js,ts,jsx,tsx}' }, {
+    provideCodeLenses(document){
+        const cfg = vscode.workspace.getConfiguration('copilotChief');
+        if(!cfg.get('showCodeLens')) return [];
+        const lenses = [];
+        const re = /Copilot Chief Paso: (.+)/g;
+        for(let i=0;i<document.lineCount;i++){
+            const line = document.lineAt(i).text;
+            let m = re.exec(line);
+            if(m){
+                lenses.push(new vscode.CodeLens(new vscode.Range(i,0,i,line.length), { title:'✔ Completar', command:'copilotChief.skipCurrentStep' }));
+                lenses.push(new vscode.CodeLens(new vscode.Range(i,0,i,line.length), { title:'↷ Regenerar Plan', command:'copilotChief.regeneratePlan' }));
+            }
+            re.lastIndex=0;
+        }
+        return lenses;
+    }
+});
 
 module.exports = { activate, deactivate };
