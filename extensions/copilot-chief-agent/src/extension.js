@@ -443,7 +443,7 @@ function openStatusPanel(context) {
         render();
 }
 
-let statusBarAgent, statusBarKey, statusBarMenu, statusBarControl;
+let statusBarAgent, statusBarKey, statusBarMenu, statusBarControl, statusBarActivity, statusBarTest;
 // Cache versión extensión
 let _extVersion = null;
 async function initStatusBars(context){
@@ -466,6 +466,16 @@ async function initStatusBars(context){
         statusBarMenu = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
         statusBarMenu.command = 'copilotChief.commands';
         context.subscriptions.push(statusBarMenu);
+    }
+    if(!statusBarActivity){
+        statusBarActivity = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 97);
+        statusBarActivity.command = 'copilotChief.console';
+        context.subscriptions.push(statusBarActivity);
+    }
+    if(!statusBarTest){
+        statusBarTest = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 96);
+        statusBarTest.command = 'copilotChief.testConsole';
+        context.subscriptions.push(statusBarTest);
     }
     const refresh = async () => {
         try {
@@ -512,6 +522,12 @@ async function initStatusBars(context){
         statusBarMenu.text = '$(menu)';
         statusBarMenu.tooltip = 'Menú de comandos Copilot Chief';
         statusBarMenu.show();
+    statusBarActivity.text = '$(output)';
+    statusBarActivity.tooltip = 'Abrir Consola de Actividad Copilot Chief';
+    statusBarActivity.show();
+    statusBarTest.text = '$(beaker)';
+    statusBarTest.tooltip = 'Abrir Consola de Pruebas Doble Interacción';
+    statusBarTest.show();
     };
     if (process.env.JEST_WORKER_ID) {
         // En tests, ejecutar refresh una sola vez para no dejar handles abiertos

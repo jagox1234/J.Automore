@@ -1,3 +1,7 @@
+## v0.1.51 - 2025-08-16
+### Added
+* Botones en la status bar para abrir Consola de Actividad (icono output) y Consola de Pruebas (icono beaker).
+
 ## v0.1.50 - 2025-08-16
 ### Added
 * Consola de Pruebas doble interacción (`Copilot Chief: Consola de Pruebas (Interacción Doble)`) para simular diálogo A↔B.
