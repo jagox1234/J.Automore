@@ -103,8 +103,37 @@ function agentState() {
     total: steps.length
   };
 }
+const { parsePlanSteps } = require('./planParser');
+let lastFeedback = '';
+// Apply plan updates from external memory file modifications
+function applyMemoryPlan(mem){
+  try {
+    if(mem && mem.objective) objectiveGlobal = mem.objective;
+    let incoming = [];
+    if (mem && mem.steps) incoming = parsePlanSteps(mem.steps);
+    if (incoming.length) {
+      // Preserve already completed steps order, append remaining
+      const completed = (mem.completed||[]).slice();
+      const remaining = incoming.filter(s => !completed.includes(s));
+      steps = [...completed.filter(c=>incoming.includes(c)), ...remaining];
+      lastFeedback = `Plan sincronizado (${incoming.length} pasos, ${completed.length} completados).`;
+    } else {
+      lastFeedback = 'No se detectaron pasos parseables en el archivo de memoria.';
+    }
+    // Write back metadata
+    if (workspaceRootPath) {
+      const { saveMemory } = require('./memoryManager');
+      const current = loadMemory(workspaceRootPath);
+      current.meta = current.meta || {};
+      current.meta.lastSync = new Date().toISOString();
+      current.meta.feedback = lastFeedback;
+      current.steps = mem.steps; // Keep original representation
+      saveMemory(workspaceRootPath, current);
+    }
+  } catch (e){ lastFeedback = 'Error aplicando plan: '+e.message; }
+}
 
-module.exports = { startAgent, agentState };
+module.exports = { startAgent, agentState, applyMemoryPlan };
 
 async function gitCommitStep(step) {
   return new Promise((resolve, reject) => {

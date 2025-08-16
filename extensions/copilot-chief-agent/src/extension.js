@@ -1,8 +1,9 @@
 // trigger: workflow release seed
 // minor noop comment to trigger CI for release verification v5
 const vscode = require('vscode');
-const { startAgent, agentState } = require('./agent');
+const { startAgent, agentState, applyMemoryPlan } = require('./agent');
 const apiKeyStore = require('./apiKeyStore');
+const { validateEnv } = require('./envValidation');
 const https = require('https');
 const cp = require('child_process');
 
@@ -18,18 +19,33 @@ function activate(context) {
             vscode.window.showErrorMessage('Configura tu OpenAI API Key antes de iniciar el agente.');
             return;
         }
+        if (!vscode.workspace.workspaceFolders) { vscode.window.showErrorMessage('Abre primero una carpeta.'); return; }
+        // Wizard: pick subfolders to scan
+        const root = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        const { listDirectories } = require('./directoryHelper');
+        const dirs = listDirectories(root, 2);
+        const picks = await vscode.window.showQuickPick(
+            dirs.map(d => ({ label: d.rel || '.', picked: d.depth < 1, d })),
+            { canPickMany: true, placeHolder: 'Selecciona carpetas relevantes a escanear (Enter para continuar)' }
+        );
+        if (!picks || picks.length === 0) { vscode.window.showWarningMessage('Operación cancelada (no seleccionaste carpetas)'); return; }
         const objective = await vscode.window.showInputBox({
             prompt: 'Escribe el objetivo general para el Agente Jefe de Copilot',
-            placeHolder: 'Ej: Implementar autenticación JWT con refresco de tokens'
+            placeHolder: 'Ej: Mejorar arquitectura y rendimiento de la extensión'
         });
-        if (objective) {
-            output.appendLine('[command] objective recibido: ' + objective);
-            startAgent(objective);
-            // Abrir panel de estado automáticamente
-            try { openStatusPanel(context); } catch {}
-        } else {
-            output.appendLine('[command] cancelado sin objetivo');
-        }
+        if (!objective) { output.appendLine('[command] cancelado sin objetivo'); return; }
+        // Persist selection in memory meta early
+        try {
+            const { loadMemory, saveMemory } = require('./memoryManager');
+            const mem = loadMemory(root);
+            mem.meta = mem.meta || {};
+            mem.meta.selectedDirs = picks.map(p => p.d.rel);
+            saveMemory(root, mem);
+        } catch {}
+        output.appendLine('[command] objective recibido: ' + objective + ' | dirs: ' + picks.map(p=>p.d.rel).join(','));
+        // Start agent (will still internally scan full project for now; refinement later to restrict)
+        startAgent(objective);
+        try { openStatusPanel(context); } catch {}
     });
     const manualUpdate = vscode.commands.registerCommand('copilotChief.checkUpdates', () => {
         checkForUpdate(output, context);
@@ -107,6 +123,40 @@ function activate(context) {
     }
     // Init status bar items
     initStatusBars(context);
+    // Watch memory file for external edits to sync steps/objective
+    if (vscode.workspace.workspaceFolders) {
+        const memFile = vscode.workspace.workspaceFolders[0].uri.fsPath + '/.copilot-chief-memory.json';
+        try {
+            const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.workspace.workspaceFolders[0], '.copilot-chief-memory.json'));
+            const reload = (uri) => {
+                const fs = require('fs');
+                try {
+                    if (!fs.existsSync(memFile)) return;
+                    const raw = fs.readFileSync(memFile, 'utf8');
+                    const json = JSON.parse(raw);
+                    applyMemoryPlan(json);
+                } catch (e) {
+                    // ignore parse errors silently for now
+                }
+            };
+            watcher.onDidChange(reload);
+            watcher.onDidCreate(reload);
+            context.subscriptions.push(watcher);
+        } catch {}
+    }
+    // Environment validation warnings
+    (async () => {
+        try {
+            const key = await apiKeyStore.getApiKey();
+            const warnings = validateEnv(key);
+            if (warnings.length) {
+                output.appendLine('[env] Advertencias de entorno:');
+                warnings.forEach(w => output.appendLine('[env] - ' + w));
+            } else {
+                output.appendLine('[env] Entorno OK');
+            }
+        } catch (e) { output.appendLine('[env] Error validando entorno: '+e.message); }
+    })();
 }
 
 function scheduleUpdateChecks(cfg, output) {
@@ -127,9 +177,11 @@ function openStatusPanel(context) {
                 vscode.ViewColumn.Beside,
                 { enableScripts: true }
         );
-        const render = () => {
+    const render = () => {
                 try {
                         const st = agentState ? agentState() : { running:false, planning:false };
+            let metaFeedback = ''; let lastSync='';
+            try { const fs = require('fs'); const path = require('path'); const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath; if(root){ const memPath = path.join(root,'.copilot-chief-memory.json'); if(fs.existsSync(memPath)){ const parsed = JSON.parse(fs.readFileSync(memPath,'utf8')); metaFeedback = parsed?.meta?.feedback || ''; lastSync = parsed?.meta?.lastSync || ''; } } } catch {}
                         const color = st.running ? '#16a34a' : (st.planning ? '#f59e0b' : '#6b7280');
                         const statusText = st.running ? 'En ejecución' : (st.planning ? 'Planificando' : 'Inactivo');
                         const remaining = (st.total>=0 && st.remaining>=0) ? `${st.total-st.remaining}/${st.total}` : '—';
@@ -157,7 +209,9 @@ function openStatusPanel(context) {
                                 Objetivo: ${st.objective ? escapeHtml(st.objective) : '<em>No iniciado</em>'}<br/>
                                 Progreso pasos: ${remaining}<br/>
                                 Planificando: ${st.planning}<br/>
-                                Ejecutando: ${st.running}
+                                Ejecutando: ${st.running}<br/>
+                                ${ metaFeedback ? `<span style='color:#93c5fd'>${escapeHtml(metaFeedback)}</span><br/>` : '' }
+                                ${ lastSync ? `<span style='opacity:.6'>Sync: ${escapeHtml(lastSync)}</span>` : '' }
                             </div>
                             <div style='margin-top:14px;'>
                                 <button onclick='vscode.postMessage({ cmd: "refresh" })'>Refrescar</button>

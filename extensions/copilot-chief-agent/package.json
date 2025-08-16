@@ -88,11 +88,15 @@
   },
   "scripts": {
     "package": "vsce package || echo 'Instala vsce si falta'",
-    "lint": "echo 'add linter'"
+    "lint": "echo 'add linter'",
+    "test": "jest"
   },
   "dependencies": {
     "openai": "^4.0.0",
     "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   },
   "repository": {
     "type": "git",
