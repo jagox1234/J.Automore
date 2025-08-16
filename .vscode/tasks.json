@@ -1,0 +1,44 @@
+{
+  // VS Code task definitions for automatic non-interactive workflow
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Chief: Pull",
+      "type": "shell",
+      "command": "git pull --rebase --autostash",
+      "problemMatcher": []
+    },
+    {
+      "label": "Chief: Install",
+      "type": "shell",
+      "command": "npm install --no-audit --no-fund",
+      "problemMatcher": [],
+      "dependsOn": ["Chief: Pull"],
+      "dependsOrder": "sequence"
+    },
+    {
+      "label": "Chief: Test",
+      "type": "shell",
+      "command": "npm test --silent",
+      "problemMatcher": [],
+      "dependsOn": ["Chief: Install"],
+      "dependsOrder": "sequence"
+    },
+    {
+      "label": "Chief: Package",
+      "type": "shell",
+      "command": "npm run package",
+      "problemMatcher": [],
+      "dependsOn": ["Chief: Test"],
+      "dependsOrder": "sequence"
+    },
+    {
+      "label": "Chief: Full Pipeline",
+      "type": "shell",
+      "command": "echo Pipeline completo listo",
+      "problemMatcher": [],
+      "dependsOn": ["Chief: Package"],
+      "dependsOrder": "sequence"
+    }
+  ]
+}
