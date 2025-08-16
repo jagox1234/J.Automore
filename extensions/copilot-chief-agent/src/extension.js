@@ -342,6 +342,8 @@ function openStatusPanel(context) {
 }
 
 let statusBarAgent, statusBarKey, statusBarMenu;
+// Cache versión extensión
+let _extVersion = null;
 async function initStatusBars(context){
     if(!statusBarAgent){
         statusBarAgent = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -365,6 +367,8 @@ async function initStatusBars(context){
             if(st.running) text += ' $(sync~spin)';
             else if(st.planning) text += ' Plan';
             else text += ' Idle';
+            if(!_extVersion){ try { _extVersion = require('../package.json').version; } catch { _extVersion = '?'; } }
+            text += ' v' + _extVersion;
             statusBarAgent.text = text;
             statusBarAgent.tooltip = `Estado del Agente\nObjetivo: ${st.objective || '—'}`;
             statusBarAgent.show();
