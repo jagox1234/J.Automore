@@ -798,3 +798,7 @@
 * chore(agent): auto bump version to 0.1.29 [skip-agent] (5ac17eb)
 * chore: align package-lock after install (32b1e6d)
 
+## v0.1.30 - 2025-08-16
+* chore(agent): auto bump version to 0.1.30 [skip-agent] (970c088)
+* chore(agent): noop trigger for auto bump (d40596f)
+
